@@ -1,0 +1,7 @@
+/data/raw
+/data/processed
+
+
+# ignore testing python script
+scrape.py
+
