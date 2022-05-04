@@ -45,14 +45,17 @@ class TargetAttention(nn.Module):
                            out_features=self._n_labels)
         nn.init.xavier_uniform_(self.U.weight)
 
-    def forward(self, K: torch.Tensor) -> torch.Tensor:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of target attention mechanism
         Parameters
         ----------
         K : torch.Tensor
-            Latent representation of input sequence with shape: [batch_size: b, sequence_length: l, embedding_dim: d]
+            Latent representation of input sequence with shape: [batch_size: b, sequence_length: l, latent_dim: d]
             Key embeddings K ∈ R^lxd
+        V : torch.Tensor
+            Latent representation of input sequence with shape: [batch_size: b, sequence_length: l, latent_dim: d]
+            Value embeddings V ∈ R^lxd
 
         Returns
         -------
@@ -63,15 +66,20 @@ class TargetAttention(nn.Module):
         """
         # Compute energy score matrix E - dot product of query embeddings Q and key embeddings K: QK.T
         # where e_i represents the energy score for i-th label in the label space
-        E = torch.matmul(input=self.U.weight, other=K.permute(0, 2, 1))  # E ∈ R^nxl, where n: n_labels and l: sequence length
+        # E ∈ R^nxl, where n: number of labels and l: sequence length
+        E = torch.matmul(input=self.U.weight, other=K.permute(0, 2, 1))
 
         # Compute attention weights matrix A using a distribution function g (here softmax)
         # where a_i represents the attention weights for the i-th label in the label space
+        # A ∈ R^nxl, where n: number of labels and l: sequence length
         A = F.softmax(input=E, dim=2)
 
-        return A
+        # Compute attention weighted document embeddings - context matrix
+        # Where c_i represents the document context vector for the i-th label in the label space
+        # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
+        C = A.matmul(V)
 
-
+        return C, A
 
 
 
