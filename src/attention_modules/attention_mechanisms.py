@@ -4,7 +4,7 @@ are written to modularize the different variations.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/03/2022
+    @last modified: 05/04/2022
 
 Attention mechanisms:
     - Self-attention
@@ -59,26 +59,35 @@ class TargetAttention(nn.Module):
 
         Returns
         -------
-        torch.Tensor
+        C : torch.Tensor
+            Context matrix C - adjusted document embeddings
+            where c_i represents the context vector for the i-th label in the label space
+        A : torch.Tensor
             Attention weight matrix A containing the attention scores
-            where a_i represents the attention weight for i-th label in the label space
+            where a_i represents the attention weight for the i-th label in the label space
 
         """
         # Compute energy score matrix E - dot product of query embeddings Q and key embeddings K: QK.T
         # where e_i represents the energy score for i-th label in the label space
         # E ∈ R^nxl, where n: number of labels and l: sequence length
-        E = torch.matmul(input=self.U.weight, other=K.permute(0, 2, 1))
+        #print(f'K size: {K.size()}')
+        #print(f'U size: {self.U.weight.size()}')
+        E = self.U.weight.matmul(K.permute(0, 2, 1))
+        #print(f'E size: {E.size()}')
+        #E = torch.matmul(input=self.U.weight, other=K.permute(0, 2, 1)) #.permute(0, 2, 1))
 
         # Compute attention weights matrix A using a distribution function g (here softmax)
         # where a_i represents the attention weights for the i-th label in the label space
         # A ∈ R^nxl, where n: number of labels and l: sequence length
         A = F.softmax(input=E, dim=2)
+        #print(f'A size: {A.size()}')
 
         # Compute attention weighted document embeddings - context matrix
         # Where c_i represents the document context vector for the i-th label in the label space
         # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
+        #print(f'V size: {V.size()}')
         C = A.matmul(V)
-
+        #print(f'C size: {C.size()}')
         return C, A
 
 
