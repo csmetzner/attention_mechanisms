@@ -326,7 +326,7 @@ parser.add_argument('-d', '--dataset',
 parser.add_argument('-am', '--attention_module',
                     required=True,
                     type=str,
-                    choices=['target', 'self', 'label'],
+                    choices=['target', 'self', 'label', 'alternate'],
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
@@ -399,6 +399,7 @@ def main():
                   X=X,
                   Y=Y,
                   path_res_dir=path_res_dir)
+
 
 if __name__ == '__main__':
     main()
