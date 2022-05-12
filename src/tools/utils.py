@@ -102,3 +102,24 @@ def get_word_embedding_matrix(dataset: str,
             pickle.dump(embedding_matrix, f)
 
     return embedding_matrix
+
+
+def parse_boolean(value: str) -> bool:
+    """
+    Function that helps with argparse arguments
+    Parameters
+    ----------
+    value : str
+
+    Returns
+    -------
+    bool
+    """
+    value = value.lower()
+
+    if value in ["true", "yes", "y", "1", "t"]:
+        return True
+    elif value in ["false", "no", "n", "0", "f"]:
+        return False
+
+    return False

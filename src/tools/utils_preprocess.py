@@ -54,7 +54,10 @@ def rel2abs(x: str, flag_proc: bool = True) -> str:
             return x
         else:
             if x[0] == 'E':
-                return f'{x[:4]}.{x[4:]}'
+                if len(x) == 4:
+                    return x
+                else:
+                    return f'{x[:4]}.{x[4:]}'
             else:
                 return f'{x[:3]}.{x[3:]}'
 
