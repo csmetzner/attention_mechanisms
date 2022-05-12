@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # custom libraries
-from attention_modules.attention_mechanisms import TargetAttention, SelfAttention, LabelAttention
+from attention_modules.attention_mechanisms import TargetAttention, SelfAttention, LabelAttention, AlternateAttention
 
 
 class CNN(nn.Module):
@@ -93,19 +93,22 @@ class CNN(nn.Module):
 
         # define attention layer based on attention module
         if self._att_module == 'target':
-            self.att_layer = TargetAttention(embedding_dim=np.sum(n_filters),
+            self.att_layer = TargetAttention(embedding_dim=np.sum(self._n_filters),
                                              n_labels=self._n_labels,
                                              scale=self._scale)
         elif self._att_module == 'self':
-            self.att_layer = SelfAttention(embedding_dim=np.sum(n_filters),
+            self.att_layer = SelfAttention(embedding_dim=np.sum(self._n_filters),
                                            scale=self._scale)
         elif self._att_module == 'label':
-            self.att_layer = LabelAttention(n_labels=n_labels,
+            self.att_layer = LabelAttention(n_labels=self._n_labels,
                                             embedding_dim=self._embedding_dim,
-                                            map_dim=np.sum(n_filters),
+                                            map_dim=np.sum(self._n_filters),
                                             label_embedding_matrix=label_embedding_matrix,
                                             scale=self._scale)
-
+        elif self._att_module == 'alternate':
+            self.att_layer = AlternateAttention(input_dim=np.sum(self._n_filters),
+                                                output_dim=self._n_labels,
+                                                scale=self._scale)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
@@ -152,6 +155,10 @@ class CNN(nn.Module):
             C, att_scores = self.att_layer(H=H)
         elif self._att_module == 'label':
             C, att_scores = self.att_layer(K=H, V=H)
+        elif self._att_module == 'alternate':
+            C, att_scores = self.att_layer(K=H, V=H)
+            print(C.size())
+            quit()
 
         if self._att_module == 'self':
             # Necessary to match output with |L| ground-truth labels
