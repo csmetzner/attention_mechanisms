@@ -7,7 +7,7 @@ Source code that contains a basic convolution neural network architecture with t
 """
 
 # built-in libraries
-from typing import List
+from typing import List, Tuple, Union
 
 # installed libraries
 import numpy as np
@@ -30,10 +30,10 @@ class CNN(nn.Module):
         Number of labels considered in the label space
     n_cats : int
         Number of high-level categories to perform hierarchical attention
-    embedding_matrix : np.array
-        Pre-trained embedding matrix using gensim's Word2Vec implementation
     embedding_dim : int
         Dimension of word embeddings, i.e., dense vector representation
+    embedding_matrix : np.array
+        Pre-trained embedding matrix using gensim's Word2Vec implementation
     window_sizes : List[int]; default = [3, 4, 5]
         Number of consecutive words considered in each convolution layer
     n_filters : List[int]
@@ -42,6 +42,13 @@ class CNN(nn.Module):
         Probability of dropout layer
     att_module : str; default=None
         Defines the attention module/mechanism applied to perform attention to the latent document representation input
+    scale : bool; default=False
+        Flag indicating if energy scores (QxK.T) should be scaled by the root of
+    label_embedding_matrix : np.array
+        Embedding matrix pretrained on the code descriptions
+    cat_embedding_matrix : np.array
+        Embedding matrix pretrained on the category descriptions
+
     """
     def __init__(self,
                  n_labels: int,
@@ -51,7 +58,7 @@ class CNN(nn.Module):
                  window_sizes: List[int] = [3, 4, 5],
                  n_filters: List[int] = [500, 500, 500],
                  dropout_p: float = 0.5,
-                 att_module: str = 'none',
+                 att_module: str = 'target',
                  scale: bool = False,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None):
@@ -138,7 +145,7 @@ class CNN(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         self.output_layer.bias.data.fill_(0.01)
 
-    def forward(self, docs, return_doc_embeds=False):
+    def forward(self, docs: torch.Tensor, return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         # Creates a mask for words with boolean expression: True=word; False=padding
         mask_words = (docs != 0)
         words_per_line = mask_words.sum(-1)  # checks number of words for each line
@@ -170,6 +177,7 @@ class CNN(nn.Module):
 
         # Compute document embeddings contained in matrix H
         H = self.dropout_layer(concat)
+        print(f'H: {H.size()}')
         # Add attention module here
         C, att_scores = self.att_layer(H=H)
 
@@ -178,6 +186,7 @@ class CNN(nn.Module):
             logits = self.output_layer(C).sum(dim=1)
         else:
             logits = self.output_layer(C).sum(dim=2)  # Consider .sum(dim=1) - depends on number of attention vectors
+
         if return_doc_embeds:
             return logits, H
         return logits
