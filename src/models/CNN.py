@@ -17,6 +17,7 @@ import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.attention_mechanisms import TargetAttention, SelfAttention, LabelAttention, AlternateAttention
+from attention_modules.attention_mechanisms import HierarchicalTargetAttention, HierarchicalLabelAttention
 
 
 class CNN(nn.Module):
@@ -27,6 +28,8 @@ class CNN(nn.Module):
     ----------
     n_labels : int
         Number of labels considered in the label space
+    n_cats : int
+        Number of high-level categories to perform hierarchical attention
     embedding_matrix : np.array
         Pre-trained embedding matrix using gensim's Word2Vec implementation
     embedding_dim : int
@@ -42,6 +45,7 @@ class CNN(nn.Module):
     """
     def __init__(self,
                  n_labels: int,
+                 n_cats: int,
                  embedding_dim: int,
                  embedding_matrix: np.array = None,
                  window_sizes: List[int] = [3, 4, 5],
@@ -49,9 +53,11 @@ class CNN(nn.Module):
                  dropout_p: float = 0.5,
                  att_module: str = 'none',
                  scale: bool = False,
-                 label_embedding_matrix: np.array = None):
+                 label_embedding_matrix: np.array = None,
+                 cat_embedding_matrix: np.array = None):
         super().__init__()
         self._n_labels = n_labels
+        self._n_cats = n_cats
         self._embedding_dim = embedding_dim
         self._window_sizes = window_sizes
         self._n_filters = n_filters
@@ -59,6 +65,7 @@ class CNN(nn.Module):
         self._att_module = att_module
         self._scale = scale
         self._label_embedding_matrix = label_embedding_matrix
+        self._cat_embedding_matrix = cat_embedding_matrix
 
         # Check to make sure window_sizes has same number of entries as num_filters
         if len(self._window_sizes) != len(self._n_filters):
@@ -93,22 +100,37 @@ class CNN(nn.Module):
 
         # define attention layer based on attention module
         if self._att_module == 'target':
-            self.att_layer = TargetAttention(embedding_dim=np.sum(self._n_filters),
-                                             n_labels=self._n_labels,
+            self.att_layer = TargetAttention(encoder_out_dim=np.sum(self._n_filters),
+                                             n_att_vectors=self._n_labels,
+                                             embedding_dim=self._embedding_dim,
                                              scale=self._scale)
         elif self._att_module == 'self':
-            self.att_layer = SelfAttention(embedding_dim=np.sum(self._n_filters),
+            self.att_layer = SelfAttention(encoder_out_dim=np.sum(self._n_filters),
+                                           embedding_dim=self._embedding_dim,
                                            scale=self._scale)
         elif self._att_module == 'label':
-            self.att_layer = LabelAttention(n_labels=self._n_labels,
+            self.att_layer = LabelAttention(encoder_out_dim=np.sum(self._n_filters),
                                             embedding_dim=self._embedding_dim,
-                                            map_dim=np.sum(self._n_filters),
+                                            n_labels=self._n_labels,
                                             label_embedding_matrix=label_embedding_matrix,
                                             scale=self._scale)
         elif self._att_module == 'alternate':
-            self.att_layer = AlternateAttention(input_dim=np.sum(self._n_filters),
-                                                output_dim=self._n_labels,
+            self.att_layer = AlternateAttention(encoder_out_dim=np.sum(self._n_filters),
+                                                n_att_vectors=self._n_labels,
                                                 scale=self._scale)
+        elif self._att_module == 'hierarchical_target':
+            self.att_layer = HierarchicalTargetAttention(encoder_out_dim=np.sum(self._n_filters),
+                                                         n_labels_lvl_1=self._n_cats,
+                                                         n_labels_lvl_2=self._n_labels,
+                                                         scale=self._scale)
+        elif self._att_module == 'hierarchical_label':
+            self.att_layer = HierarchicalLabelAttention(encoder_out_dim=np.sum(self._n_filters),
+                                                        embedding_dim=self._embedding_dim,
+                                                        n_labels_lvl_1=self._n_cats,
+                                                        n_labels_lvl_2=self._n_labels,
+                                                        cat_embedding_matrix=self._cat_embedding_matrix,
+                                                        label_embedding_matrix=self._label_embedding_matrix,
+                                                        scale=self._scale)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
@@ -149,23 +171,13 @@ class CNN(nn.Module):
         # Compute document embeddings contained in matrix H
         H = self.dropout_layer(concat)
         # Add attention module here
-        if self._att_module == 'target':
-            C, att_scores = self.att_layer(K=H, V=H)
-        elif self._att_module == 'self':
-            C, att_scores = self.att_layer(H=H)
-        elif self._att_module == 'label':
-            C, att_scores = self.att_layer(K=H, V=H)
-        elif self._att_module == 'alternate':
-            C, att_scores = self.att_layer(K=H, V=H)
-            print(C.size())
-            quit()
+        C, att_scores = self.att_layer(H=H)
 
         if self._att_module == 'self':
             # Necessary to match output with |L| ground-truth labels
             logits = self.output_layer(C).sum(dim=1)
         else:
-            logits = self.output_layer(C).sum(dim=2)
-
+            logits = self.output_layer(C).sum(dim=2)  # Consider .sum(dim=1) - depends on number of attention vectors
         if return_doc_embeds:
             return logits, H
         return logits
