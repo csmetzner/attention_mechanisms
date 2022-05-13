@@ -1,0 +1,24 @@
+PathReports:
+  doc_max_len: 2500
+  n_cats:
+    site: ~
+    subsite: ~
+    laterality: ~
+    histology: ~
+    grade: ~
+    behavior: ~
+  n_labels:
+    site: ~
+    subsite: ~
+    laterality: ~
+    histology: ~
+    grade: ~
+    behavior: ~
+Mimic50:
+  doc_max_len: 4000
+  n_cats: 10
+  n_labels: 50
+MimicFull:
+  doc_max_len: 4000
+  n_cats: 19
+  n_labels: 8907

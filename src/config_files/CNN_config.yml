@@ -1,0 +1,21 @@
+model: 'CNN'
+model_kwargs:
+  n_labels: ~
+  n_cats: ~
+  embedding_dim: 300
+  embedding_matrix: ~
+  label_embedding_matrix: ~
+  cat_embedding_matrix: ~
+  window_sizes: [3, 4, 5]
+  n_filters: [500, 500, 500]
+  dropout_p: 0.5
+  att_module: ~
+train_kwargs:
+  doc_max_len: ~
+  batch_size: 32
+  epochs: 100
+  patience: 5
+  lr: 0.0001
+  optimizer: 'Adam'
+  multilabel: True
+
