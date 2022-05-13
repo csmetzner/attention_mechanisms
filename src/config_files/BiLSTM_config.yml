@@ -1,0 +1,23 @@
+model: 'BiLSTM'
+model_kwargs:
+  n_labels: ~
+  n_cats: ~
+  embedding_dim: 300
+  embedding_matrix: ~
+  hidden_size: 512
+  RNN_type: 'LSTM'
+  bidir: True
+  dropout_p: 0.5
+  att_module: ~
+  scale: False
+  label_embedding_matrix: ~
+  cat_embedding_matrix: ~
+train_kwargs:
+  doc_max_len: ~
+  batch_size: 32
+  epochs: 100
+  patience: 5
+  lr: 0.0001
+  optimizer: 'Adam'
+  multilabel: True
+
