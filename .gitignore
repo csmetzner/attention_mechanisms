@@ -3,5 +3,5 @@
 
 
 # ignore testing python script
-scrape.py
+src/scrape.py
 
