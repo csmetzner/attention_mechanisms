@@ -5,3 +5,9 @@
 # ignore testing python script
 src/scrape.py
 
+# ignore results for now
+reports
+
+notebooks/.ipynb_checkpoints
+
+
