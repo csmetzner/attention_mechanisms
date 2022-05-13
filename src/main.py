@@ -4,7 +4,7 @@ the models, and performing training, validating, and testing of the models.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/06/2022
+    @last modified: 05/13/2022
 """
 
 # built-in libraries
@@ -107,7 +107,7 @@ class ExperimentSuite:
         path_data = os.path.join(root, 'data', 'processed')
 
         # Load pre-defined config file for current model
-        print(os.path.join(path_config, f'{model}_config.yml'))
+        #print(os.path.join(path_config, f'{model}_config.yml'))
         with open(os.path.join(path_config, f'{model}_config.yml'), 'r') as f:
             self._model_args = yaml.safe_load(stream=f)
 
@@ -118,8 +118,11 @@ class ExperimentSuite:
         # Retrieve required model arguments
         if dataset == 'PathReports':
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels'][task]
+            self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats'][task]
         else:
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels']
+            self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
+
         self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
         self._model_args['model_kwargs']['att_module'] = att_module
 
@@ -134,10 +137,19 @@ class ExperimentSuite:
                                                      min_count=3)
         self._model_args['model_kwargs']['embedding_matrix'] = embedding_matrix
 
+        # Load description embeddings
         if att_module == 'label':
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
+        if att_module == 'hierarchical_label':
+            with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
+                label_embedding_matrix = pickle.load(f)
+            self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
+            with open(os.path.join(path_data, 'code_embeddings', f'cat_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
+                cat_embedding_matrix = pickle.load(f)
+            self._model_args['model_kwargs']['cat_embedding_matrix'] = cat_embedding_matrix
+
         if dropout_p is not None:
             self._model_args['model_kwargs']['dropout_p'] = dropout_p
         if batch_size is not None:
@@ -326,7 +338,7 @@ parser.add_argument('-d', '--dataset',
 parser.add_argument('-am', '--attention_module',
                     required=True,
                     type=str,
-                    choices=['target', 'self', 'label', 'alternate'],
+                    choices=['target', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label'],
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
