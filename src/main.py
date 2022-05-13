@@ -31,6 +31,7 @@ from tools.utils import parse_boolean, get_word_embedding_matrix
 from tools import dataloaders
 from tools.training import train, scoring
 from models.CNN import CNN
+from models.RNN import RNN
 
 # get root path
 try:
@@ -213,6 +214,14 @@ class ExperimentSuite:
 
         if self._model == 'CNN':
             model = CNN(**model_args['model_kwargs'])
+        elif self._model == 'BiLSTM':
+            model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'LSTM':
+            model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'BiGRU':
+            model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'GRU':
+            model = RNN(**model_args['model_kwargs'])
         else:
             raise Exception('Invalid model type!')
 
@@ -243,6 +252,7 @@ class ExperimentSuite:
                               data_loader=test_loader,
                               multilabel=True,
                               class_weights=None)
+        print(f'Test loss: {test_scores["loss"]}')
 
         store_scores(scores=test_scores,
                      model_type=self._model,
