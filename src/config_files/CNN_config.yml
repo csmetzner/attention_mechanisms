@@ -6,10 +6,14 @@ model_kwargs:
   embedding_matrix: ~
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
+  code2cat_map: ~
   window_sizes: [3, 4, 5]
   n_filters: [500, 500, 500]
   dropout_p: 0.5
   att_module: ~
+  scale: False
+  multihead: False
+  num_heads: ~
 train_kwargs:
   doc_max_len: ~
   batch_size: 32

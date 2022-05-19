@@ -16,9 +16,9 @@ PathReports:
     behavior: ~
 Mimic50:
   doc_max_len: 4000
-  n_cats: 10
+  n_cats: 14
   n_labels: 50
 MimicFull:
   doc_max_len: 4000
-  n_cats: 19
+  n_cats: 37
   n_labels: 8907
