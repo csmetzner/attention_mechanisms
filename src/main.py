@@ -101,7 +101,10 @@ class ExperimentSuite:
                           epochs: int = None,
                           optimizer: str = None,
                           doc_max_len: int = None,
-                          patience: int = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          patience: int = None,
+                          scale: bool = False,
+                          multihead: bool = False,
+                          num_heads: int = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Set up paths to directory where config_files are stored
         path_config = os.path.join(root, 'src', 'config_files')
@@ -119,10 +122,12 @@ class ExperimentSuite:
         # Retrieve required model arguments
         if dataset == 'PathReports':
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels'][task]
-            self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats'][task]
+            if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
+                self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats'][task]
         else:
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels']
-            self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
+            if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
+                self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
 
         self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
         self._model_args['model_kwargs']['att_module'] = att_module
@@ -143,6 +148,10 @@ class ExperimentSuite:
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
+        if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
+            with open(os.path.join(path_data, 'code_embeddings', f'embedding_matrix_{dataset}_mapping.pkl'), 'rb') as f:
+                code2cat_map = pickle.load(f)
+            self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
         if att_module == 'hierarchical_label':
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
@@ -153,6 +162,12 @@ class ExperimentSuite:
 
         if dropout_p is not None:
             self._model_args['model_kwargs']['dropout_p'] = dropout_p
+        if scale is not None:
+            self._model_args['model_kwargs']['scale'] = scale
+        if multihead is not None:
+            self._model_args['model_kwargs']['multihead'] = multihead
+        if num_heads is not None:
+            self._model_args['model_kwargs']['num_heads'] = num_heads
         if batch_size is not None:
             self._model_args['train_kwargs']['batch_size'] = batch_size
         if epochs is not None:
@@ -177,7 +192,11 @@ class ExperimentSuite:
         optim = model_args['train_kwargs']['optimizer']
         lr = model_args['train_kwargs']['lr']
 
-        model_name = f'{self._model}_{self._att_module}_{model_args["model_kwargs"]["embedding_dim"]}' \
+        model_name = f'{self._model}' \
+                     f'_{self._att_module}' \
+                     f'_{model_args["model_kwargs"]["multihead"]}' \
+                     f'_{model_args["model_kwargs"]["num_heads"]}' \
+                     f'_{model_args["model_kwargs"]["embedding_dim"]}' \
                     f'_{doc_max_len}_{batch_size}_{optim}_{timestamp}'
 
         print(f'Name of model: {model_name}')
@@ -357,10 +376,19 @@ parser.add_argument('-t', '--task',
                     choices=['site', 'subsite', 'laterality', 'grade', 'histology', 'behavior'],
                     help='Select a task if dataset "PathReports" was selected.'
                          '\nTasks: | site | subsite | laterality | grade | histology | behavior |')
-parser.add_argument('-de', '--embedding_dim',
+parser.add_argument('-ed', '--embedding_dim',
                     type=int,
                     help='Set embedding dimension; optional.'
                          '\nIf pretrained embedding matrix does not exist for dim then is created.')
+parser.add_argument('-sca', '--scale',
+                    type=parse_boolean,
+                    help='Set flag if energy scores should be scores: E = (QxK.T/root(emb_dim)).')
+parser.add_argument('-mh', '--multihead',
+                    type=parse_boolean,
+                    help='Flag indicating if multihead attention mechanism should be used.')
+parser.add_argument('-nh', '--num_heads',
+                    type=int,
+                    help='Set number of attention heads if multihead argument is set to True.')
 parser.add_argument('-dp', '--dropout_p',
                     type=float,
                     help='Set dropout probability; optional.')
@@ -396,6 +424,10 @@ def main():
         raise TypeError('If dataset "PathReports" is selected, you MUST select a task.'
                         '\nTasks: | site | subsite | laterality | grade | histology | behavior |')
 
+    if args.multihead and (args.num_heads is None):
+        raise TypeError('Enter number of attention heads when multihead is set to True.'
+                        '\n| -nh | --num_heads |')
+
     model_args = exp.fill_model_config(model=args.model,
                                        dataset=args.dataset,
                                        att_module=args.attention_module,
@@ -405,7 +437,13 @@ def main():
                                        batch_size=args.batch_size,
                                        epochs=args.epochs,
                                        optimizer=args.optimizer,
-                                       doc_max_len=args.doc_max_len)
+                                       doc_max_len=args.doc_max_len,
+                                       patience=args.patience,
+                                       scale=args.scale,
+                                       multihead=args.multihead,
+                                       num_heads=args.num_heads)
+
+    #print(model_args)
 
     if args.singularity:
         path_res_dir = 'mnt/results/'
