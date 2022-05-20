@@ -4,7 +4,7 @@ the models, and performing training, validating, and testing of the models.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/13/2022
+    @last modified: 05/20/2022
 """
 
 # built-in libraries
@@ -160,6 +160,7 @@ class ExperimentSuite:
                 cat_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['cat_embedding_matrix'] = cat_embedding_matrix
 
+        # Add new value to model_args if given via commandline
         if dropout_p is not None:
             self._model_args['model_kwargs']['dropout_p'] = dropout_p
         if scale is not None:
