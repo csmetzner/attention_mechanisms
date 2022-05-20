@@ -3,7 +3,7 @@ This file contains source code for the training procedure of the models.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/05/2022
+    @last modified: 05/20/2022
 """
 
 # built-in libraries
@@ -20,7 +20,6 @@ from .performance_metrics import get_scores
 
 # Select GPU as hardware if available otherwise use available CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'The experiment uses the following device: {device}')
 
 
 def train(model,
@@ -109,8 +108,8 @@ def train(model,
             optimizer.step()
 
             l_cpu = loss.cpu().detach().numpy()
-            if b == 1:
-                break
+            #if b == 1:
+            #   break
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)')
 
 
@@ -213,8 +212,8 @@ def scoring(model,
             loss += loss_fct(logits, Y)
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
 
     # Compute the scores
     scores = {}
