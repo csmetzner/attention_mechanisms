@@ -4,7 +4,7 @@ are written to modularize the different variations.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/19/2022
+    @last modified: 05/20/2022
 
 Attention mechanisms:
     - Self-attention (implemented, tested)
@@ -13,7 +13,7 @@ Attention mechanisms:
     - Hierarchical-attention
         - Target attention (implemented, tested)
         - Label attention (implemented, tested)
-    - Multi-head attention (implemented, tested)
+    - Multi-head attention (implemented, tested; https://d2l.ai/chapter_attention-mechanisms/multihead-attention.html)
     - Alternating attention (implemented, tested)
 """
 # built-in libraries
