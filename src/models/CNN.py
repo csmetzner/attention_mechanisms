@@ -3,7 +3,7 @@ Source code that contains a basic convolution neural network architecture with t
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/04/2022
+    @last modified: 05/20/2022
 """
 
 # built-in libraries
@@ -168,7 +168,7 @@ class CNN(nn.Module):
 
         if self._att_module == 'self':
             # Necessary to match output with |L| ground-truth labels
-            logits = self.output_layer(C.permute(0, 2, 1)).sum(dim=1)
+            logits = self.output_layer(C).sum(dim=1)
         else:
             logits = self.output_layer(C).sum(dim=2)  # Consider .sum(dim=1) - depends on number of attention vectors
 
