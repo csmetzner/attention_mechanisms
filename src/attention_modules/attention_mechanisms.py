@@ -936,6 +936,279 @@ class HierarchicalLabelAttention(nn.Module):
         return C2, A2
 
 
+class HierarchicalTargetAttention_Context(nn.Module):
+    """
+    Hierarchical target attention mechanism inspired by Galassi et al. (2021) - Attention in Natural Language Processing
+    (source: https://arxiv.org/abs/1902.02181) representation of hierarchical attention proposed by Zhao and Zhang
+    (2018) (Figure. 6 - center).
+
+    This class combines the context matrices C1 (hierarchy level 1) and C2 (hierarchy level 2) to create one final
+    context vector.
+
+    Parameters
+    ----------
+    num_labels : int
+        Number of labels |L| in billable code label space
+    num_cats : int
+        Number of labels |L| in category label space
+    embedding_dim : int
+        Dimension of token embeddings
+    latent_doc_dim : int
+        Output dimension of encoder architecture, i.e., dimension of latent document representation
+    code2cat_map : List[int]
+        List containing index mappings of codes to their respective categories
+    scale : bool; default=False
+        Flag indicating whether Energy Scores E (QxK.T) should be scaled using square-root(embedding_dim)
+    multihead : bool; default=False
+        Flag indicating if multihead attention has to be performed.
+    """
+
+    def __init__(self,
+                 num_labels: int,
+                 num_cats: int,
+                 embedding_dim: int,
+                 latent_doc_dim: int,
+                 code2cat_map: List[int],
+                 scale: bool = False,
+                 multihead: bool = False):
+
+        super().__init__()
+        self._num_labels = num_labels
+        self._num_cats = num_cats
+        self._embedding_dim = embedding_dim
+        self._latent_doc_dim = latent_doc_dim
+        self._code2cat_map = code2cat_map
+        self._scale = scale
+        self._multihead = multihead
+
+        # Initialize query matricees for hierarchical attention
+        # Level 1: high-level category labels
+        # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1.weight)
+        #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+
+        # Level 2: low-level code labels
+        # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2.weight)
+
+    def forward(self,
+                K: torch.Tensor,
+                V: torch.Tensor,
+                Q1: torch.Tensor,
+                Q2: torch.Tensor) -> Tuple[torch.Tensor]:
+        """
+        Forward pass of hierarchical target attention mechanism.
+        This version uses the context matrix (C1) of hierarchy level 1 to inform the query matrix (Q2) of hierarchy
+        level 2 by adding the created context vector C1_i for the ith category to the appropriate query embedding q2_i
+        of the ith code description using a generated index mapping. In that, the codes are mapped to the categories.
+
+        Parameters
+        ----------
+        K : Union[torch.Tensor, List[torch.Tensor]]
+            Key embedding matrix - K ∈ R^lxd; where l: sequence length and d: latent document dimension
+        V : Union[torch.Tensor, List[torch.Tensor]]
+            Value embedding matrix - V ∈ R^lxd
+        Q1 : Union[torch.Tensor, List[torch.Tensor]]
+            Query embedding matrix - Q ∈ R^n1xd; where n1: number of categories in hierarchy level 1
+        Q2 : Union[torch.Tensor, List[torch.Tensor]]
+            Query embedding matrix - Q ∈ R^n2xd; where n2: number of codes in hierarchy level 2
+
+        Returns
+        -------
+        C : torch.Tensor
+            Context matrix C - adjusted document embeddings
+            where c_i represents the context vector for the i-th label in the label space
+        A : torch.Tensor
+            Attention weight matrix A containing the attention scores
+            where a_i represents the attention weight for the i-th label in the label space
+
+        """
+
+        if self._multihead:
+            if self._scale:
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1))
+            A1 = F.softmax(input=E1, dim=-1)
+            C1 = torch.bmm(A1, V)
+
+            for i, code2cat_idx in enumerate(self._code2cat_map):
+                Q2[:, i, :] += C1[:, code2cat_idx, :]
+
+            if self._scale:
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1))
+            A2 = F.softmax(input=E2, dim=-1)
+            C2 = torch.bmm(A2, V)
+        else:
+            if self._scale:
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E1 = Q1.matmul(K.permute(0, 2, 1))
+
+            A1 = F.softmax(input=E1, dim=-1)
+            C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
+            # Map context vector of the ith category to each code belong to the same category.
+
+            if self._scale:
+                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E2 = Q2.matmul(K.permute(0, 2, 1))
+            A2 = F.softmax(input=E2, dim=-1)
+
+            # Compute attention weighted document embeddings - context matrix
+            # Where c_i represents the document context vector for the i-th label in the label space
+            # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
+            C2 = A2.matmul(V)
+
+            for i, code2cat_idx in enumerate(self._code2cat_map):
+                C2[:, i, :] += C1[:, code2cat_idx, :]
+
+        return C2, A2
+
+
+class HierarchicalTargetAttention_Context(nn.Module):
+    """
+    Hierarchical target attention mechanism inspired by Galassi et al. (2021) - Attention in Natural Language Processing
+    (source: https://arxiv.org/abs/1902.02181) representation of hierarchical attention proposed by Zhao and Zhang
+    (2018) (Figure. 6 - center).
+
+    This class combines the context matrices C1 (hierarchy level 1) and C2 (hierarchy level 2) to create one final
+    context vector.
+
+    Parameters
+    ----------
+    num_labels : int
+        Number of labels |L| in billable code label space
+    num_cats : int
+        Number of labels |L| in category label space
+    embedding_dim : int
+        Dimension of token embeddings
+    latent_doc_dim : int
+        Output dimension of encoder architecture, i.e., dimension of latent document representation
+    code2cat_map : List[int]
+        List containing index mappings of codes to their respective categories
+    scale : bool; default=False
+        Flag indicating whether Energy Scores E (QxK.T) should be scaled using square-root(embedding_dim)
+    multihead : bool; default=False
+        Flag indicating if multihead attention has to be performed.
+    """
+
+    def __init__(self,
+                 num_labels: int,
+                 num_cats: int,
+                 embedding_dim: int,
+                 latent_doc_dim: int,
+                 code2cat_map: List[int],
+                 scale: bool = False,
+                 multihead: bool = False):
+
+        super().__init__()
+        self._num_labels = num_labels
+        self._num_cats = num_cats
+        self._embedding_dim = embedding_dim
+        self._latent_doc_dim = latent_doc_dim
+        self._code2cat_map = code2cat_map
+        self._scale = scale
+        self._multihead = multihead
+
+        # Initialize query matricees for hierarchical attention
+        # Level 1: high-level category labels
+        # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1.weight)
+        #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+
+        # Level 2: low-level code labels
+        # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2.weight)
+
+    def forward(self,
+                K: torch.Tensor,
+                V: torch.Tensor,
+                Q1: torch.Tensor,
+                Q2: torch.Tensor) -> Tuple[torch.Tensor]:
+        """
+        Forward pass of hierarchical target attention mechanism.
+        This version uses the context matrix (C1) of hierarchy level 1 to inform the query matrix (Q2) of hierarchy
+        level 2 by adding the created context vector C1_i for the ith category to the appropriate query embedding q2_i
+        of the ith code description using a generated index mapping. In that, the codes are mapped to the categories.
+
+        Parameters
+        ----------
+        K : Union[torch.Tensor, List[torch.Tensor]]
+            Key embedding matrix - K ∈ R^lxd; where l: sequence length and d: latent document dimension
+        V : Union[torch.Tensor, List[torch.Tensor]]
+            Value embedding matrix - V ∈ R^lxd
+        Q1 : Union[torch.Tensor, List[torch.Tensor]]
+            Query embedding matrix - Q ∈ R^n1xd; where n1: number of categories in hierarchy level 1
+        Q2 : Union[torch.Tensor, List[torch.Tensor]]
+            Query embedding matrix - Q ∈ R^n2xd; where n2: number of codes in hierarchy level 2
+
+        Returns
+        -------
+        C : torch.Tensor
+            Context matrix C - adjusted document embeddings
+            where c_i represents the context vector for the i-th label in the label space
+        A : torch.Tensor
+            Attention weight matrix A containing the attention scores
+            where a_i represents the attention weight for the i-th label in the label space
+
+        """
+
+        if self._multihead:
+            if self._scale:
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1))
+            A1 = F.softmax(input=E1, dim=-1)
+            C1 = torch.bmm(A1, V)
+
+            for i, code2cat_idx in enumerate(self._code2cat_map):
+                Q2[:, i, :] += C1[:, code2cat_idx, :]
+
+            if self._scale:
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1))
+            A2 = F.softmax(input=E2, dim=-1)
+            C2 = torch.bmm(A2, V)
+        else:
+            if self._scale:
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E1 = Q1.matmul(K.permute(0, 2, 1))
+
+            A1 = F.softmax(input=E1, dim=-1)
+            C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
+            # Map context vector of the ith category to each code belong to the same category.
+
+            if self._scale:
+                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+            else:
+                E2 = Q2.matmul(K.permute(0, 2, 1))
+            A2 = F.softmax(input=E2, dim=-1)
+
+            for i, code2cat_idx in enumerate(self._code2cat_map):
+                A2[:, i, :] += A1[:, code2cat_idx, :]
+            A2 = A2 / 2
+
+            # Compute attention weighted document embeddings - context matrix
+            # Where c_i represents the document context vector for the i-th label in the label space
+            # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
+            C2 = A2.matmul(V)
+
+        return C2, A2
+
+
 class MultiHeadAttention(nn.Module):
     def __init__(self,
                  num_heads: int,
