@@ -25,6 +25,10 @@ tqdm.pandas()
 import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
+from transformers import AutoTokenizer, AutoModel
+from transformers import AutoConfig
+config = AutoConfig.from_pretrained("emilyalsentzer/Bio_Discharge_Summary_BERT")
+tokenizer = AutoTokenizer.from_pretrained("emilyalsentzer/Bio_Discharge_Summary_BERT", model_max_length=512)
 
 
 def rel2abs(x: str, flag_proc: bool = True) -> str:
@@ -64,7 +68,7 @@ def rel2abs(x: str, flag_proc: bool = True) -> str:
 
 def preproc_clinical_notes(df_notes: pd.DataFrame,
                            path_data_proc: str,
-                           caml_clean: bool=True) -> pd.DataFrame:
+                           caml_clean: bool = True) -> pd.DataFrame:
     """
     Function that loads table NOTEEVENTS.csv of the MIMIC-III. This table contains all available clinical notes
     associated with each unique hospital admission id. The clinical notes are filtered for the discharge summaries. The
@@ -79,6 +83,8 @@ def preproc_clinical_notes(df_notes: pd.DataFrame,
     caml_clean : bool; default=True
         Flag indicating type of text preprocessing; if set to True script follows cleaning procedure described in
         Mullenbach et al. 2018. If false, procedure proposed by Gao et al. 2019 is followed.
+    tokenize : bool; default=True
+        Flag indicating if text should be tokenized.
 
     Returns
     -------
@@ -92,15 +98,19 @@ def preproc_clinical_notes(df_notes: pd.DataFrame,
 
     # Cleaning of clinical notes
     # df_notes['text'] = df_notes.apply(lambda x: clean_text(x.text), axis=1)
-    df_notes['TEXT'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT), caml_clean=caml_clean), axis=1)
-
+    df_notes['TOKENS'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT),
+                                                                               caml_clean=caml_clean,
+                                                                               tokenize=True), axis=1)
+    df_notes['TEXT'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT),
+                                                                             caml_clean=caml_clean,
+                                                                             tokenize=False), axis=1)
     # Store dataframe
     df_notes.to_pickle(os.path.join(path_data_proc, 'CLEANED_NOTES.pkl'))
 
     return df_notes
 
 
-def clean_tokenize_text(text: str, caml_clean: bool=True) -> str:
+def clean_tokenize_text(text: str, caml_clean: bool = True, tokenize: bool = True) -> str:
     # define punctuations
     '''
     Patterns to remove
@@ -122,8 +132,10 @@ def clean_tokenize_text(text: str, caml_clean: bool=True) -> str:
 
     if caml_clean:
         tokens = [t.lower() for t in word_tokenize(text) if not t.isnumeric()]
-        #text = '"' + ' '.join(tokens) + '"'
-        return tokens
+        if tokenize:
+            return tokens
+        text = ' '.join(tokens)
+        return text
     else:
         # Preprocessing procedure follows closely Gao et al. 2020 - Using case-level context to classify cancer pathology reports
         # 2. Lowercase
@@ -147,9 +159,10 @@ def clean_tokenize_text(text: str, caml_clean: bool=True) -> str:
         for p in punc:
             text = re.sub("\%s{2,}" % p, '%s' % p, text)
             text = re.sub('\%s' % p, ' %s ' % p, text)
-
-        tokens = word_tokenize(text)
-        return tokens
+        if tokenize:
+            tokens = word_tokenize(text)
+            return tokens
+        return text
 
 
 def get_class_type(classes_list: List[str], code: bool=True) -> List[List[str]]:
@@ -197,7 +210,7 @@ def get_class_type(classes_list: List[str], code: bool=True) -> List[List[str]]:
 
 def create_splits(subset: str, path_data_proc: str, min_freq: int = 3):
     """
-    This function that creates X and y data for training, testing, and validation splits for each subset.
+    This function creates X and y data for training, testing, and validation splits for each subset.
 
     Parameters
     ----------
@@ -238,14 +251,23 @@ def create_splits(subset: str, path_data_proc: str, min_freq: int = 3):
         ###################
         ## Create X data ##
         ###################
+        # Store just the cleaned data to be used for huggingface/transformers
+        df_split_X_text = df_split[['TEXT']].copy()  # make list of individual strings, each string is one sample
+        token2id_transformer = tokenizer(df_split_X_text.TEXT.tolist(),
+                                         padding=True,
+                                         truncation=True,
+                                         return_tensors='pt')
+
+        with open(os.path.join(path_data_proc, f'data_{subset}', f'X_{subset}_{split}_text.pkl'), 'wb') as f:
+            pickle.dump(token2id_transformer, f)
 
         # Map tokens2idx
-        df_split_X = df_split[['TEXT']].copy()
+        df_split_X = df_split[['TOKENS']].copy()
 
         # Create vocabulary from training split using torchtext class build_vocab_from_iterator
         if split == 'train':
             # Create list containing
-            train_tokens = df_split_X.TEXT.tolist()
+            train_tokens = df_split_X.TOKENS.tolist()
             with open(os.path.join(path_data_proc, f'data_{subset}', f'train_tokens_{subset}.pkl'), 'wb') as f:
                 pickle.dump(train_tokens, f)
 
@@ -256,8 +278,8 @@ def create_splits(subset: str, path_data_proc: str, min_freq: int = 3):
             with open(os.path.join(path_data_proc, f'data_{subset}', f'vocab_{subset}.pkl'), 'wb') as f:
                 pickle.dump(vocab, f)
 
-                # apply mapping of tokens to index function
-        df_split_X['token2id'] = df_split_X.apply(lambda x: vocab.lookup_indices(x.TEXT), axis=1)
+        # apply mapping of tokens to index function
+        df_split_X['token2id'] = df_split_X.apply(lambda x: vocab.lookup_indices(x.TOKENS), axis=1)
         df_split_X.token2id.to_pickle(os.path.join(path_data_proc, f'data_{subset}', f'X_{subset}_{split}.pkl'))
 
         ###################
