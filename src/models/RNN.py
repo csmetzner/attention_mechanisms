@@ -4,7 +4,7 @@ Long Short-term Memory Model (LSTM) or the Gated Recurrent Unit Model (GRU) for 
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/20/2022
+    @last modified: 05/24/2022
 """
 
 # built-in libraries
@@ -21,6 +21,44 @@ from attention_modules.attention_mechanisms import Attention
 
 
 class RNN(nn.Module):
+    """
+    Recurrent neural network class
+
+    Parameters
+    ----------
+    n_labels : int
+        Number of labels considered in the label space
+    embedding_dim : int
+        Dimension of word embeddings, i.e., dense vector representation
+    embedding_matrix : np.array
+        Pre-trained embedding matrix using gensim's Word2Vec implementation
+    hidden_size : int
+        Dimension of hidden states of RNN
+    RNN_type : str
+        Selected type of RNN: | LSTM | BiLSTM | GRU | BiGRU|
+    bidir : bool; default=True
+        Flag indicating if RNN is bi-directional.
+    n_layers : int; default=2
+        Number of layers of RNN
+    dropout_p : float
+        Probability of dropout layer
+    att_module : str; default=None
+        Defines the attention module/mechanism applied to perform attention to the latent document representation input
+    scale : bool; default=False
+        Flag indicating if energy scores (QxK.T) should be scaled by the root of
+    multihead : bool; default=False
+        Flag indicating if multi-head attention is used
+    num_heads : int; default=None
+        Number of attention heads when multi-head attention is activated
+    n_cats : int
+        Number of high-level categories to perform hierarchical attention
+    label_embedding_matrix : np.array
+        Embedding matrix pretrained on the code descriptions
+    cat_embedding_matrix : np.array
+        Embedding matrix pretrained on the category descriptions
+    code2cat_map : List[int]; default=None
+        Category index to map codes to categories
+    """
     def __init__(self,
                  n_labels: int,
                  embedding_dim: int,
@@ -108,6 +146,23 @@ class RNN(nn.Module):
         self.output_layer.bias.data.fill_(0.01)
 
     def forward(self, docs: torch.Tensor, return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+        """
+        Forward pass of RNN models
+
+        Parameters
+        ----------
+        docs : torch.tensor
+            Input documents
+        return_doc_embeds : bool; default=False
+            Flag indicating if doc embeddings should be returned
+
+        Returns
+        -------
+        Union[torch.Tensor, Tuple[torch.Tensor]]
+            [Logits], [Logits, doc_embeds]
+
+
+        """
         # Creates a mask for words with boolean expression: True=word; False=padding
         mask_words = (docs != 0)
         words_per_line = mask_words.sum(-1)  # checks number of words for each line
