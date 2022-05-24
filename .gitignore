@@ -7,7 +7,14 @@ src/scrape.py
 
 # ignore results for now
 reports
+results
 
 notebooks/.ipynb_checkpoints
 
-
+.DS_Store
+.idea/
+data/.DS_Store
+data/external/.DS_Store
+src/attention_modules/__pycache__/
+src/models/__pycache__/
+src/tools/__pycache__/
