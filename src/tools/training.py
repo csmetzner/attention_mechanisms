@@ -3,7 +3,7 @@ This file contains source code for the training procedure of the models.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/20/2022
+    @last modified: 05/24/2022
 """
 
 # built-in libraries

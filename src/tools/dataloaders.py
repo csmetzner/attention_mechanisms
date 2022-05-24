@@ -4,7 +4,7 @@ and the clinical notes of MIMIC-III (Mimic) datasets.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/06/2022
-    @last modified: 05/07/2022
+    @last modified: 05/24/2022
 """
 
 # Built-in libraries
