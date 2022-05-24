@@ -4,7 +4,7 @@ the models, and performing training, validating, and testing of the models.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/20/2022
+    @last modified: 05/24/2022
 """
 
 # built-in libraries
@@ -32,6 +32,7 @@ from tools import dataloaders
 from tools.training import train, scoring
 from models.CNN import CNN
 from models.RNN import RNN
+from models.Transformers import TransformerModel
 
 # get root path
 try:
@@ -65,6 +66,10 @@ class ExperimentSuite:
         self._model = model
         self._att_module = att_module
         self._model_args = None
+        if self._model == 'DischargeBERT':
+            self._transformer = True
+        else:
+            self._transformer = False
 
     def fetch_data(self):
         # Initialize list with split names
@@ -82,8 +87,15 @@ class ExperimentSuite:
 
         for s, split in enumerate(splits):
             # Load token2idx mapped documents
-            X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}.pkl'))
-            X.append(X_split.values)
+            if self._transformer:
+                X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}_text.pkl'))
+                #Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
+                #Y_tensor = torch.stack([torch.from_numpy(sample) for sample in Y_split.values])
+                #X_split['labels'] = Y_tensor
+                X.append(X_split)
+            else:
+                X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}.pkl'))
+                X.append(X_split.values)
 
             # Load ground-truth values
             Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
@@ -129,7 +141,12 @@ class ExperimentSuite:
             if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
                 self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
 
-        self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
+        # Add maximal length of document
+        if self._transformer:
+            self._model_args['train_kwargs']['doc_max_len'] = 512
+        else:
+            self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
+        # add type of attention mechanism
         self._model_args['model_kwargs']['att_module'] = att_module
 
         # Check if optional arguments were given for | embedding_dim | epochs | optimizer | doc_max_length |
@@ -141,7 +158,8 @@ class ExperimentSuite:
                                                      embedding_dim=self._model_args['model_kwargs']['embedding_dim'],
                                                      path_data=path_data,
                                                      min_count=3)
-        self._model_args['model_kwargs']['embedding_matrix'] = embedding_matrix
+        if not self._transformer:
+            self._model_args['model_kwargs']['embedding_matrix'] = embedding_matrix
 
         # Load description embeddings
         if att_module == 'label':
@@ -215,14 +233,22 @@ class ExperimentSuite:
         else:
             Data = dataloaders.MimicData
 
+        #if self._transformer:
+        #    train_dataset = X[0]
+        #    val_dataset = X[1]
+        #    test_dataset = X[2]
+        #    print(f'Size of training data {len(train_dataset["input_ids"])},'
+        #          f' validation data {len(val_dataset["input_ids"])},'
+        #          f' and testing data {len(test_dataset["input_ids"])}.')
+        #else:
         # Training dataset
-        train_dataset = Data(X=X[0], Y=Y[0], doc_max_len=doc_max_len)
+        train_dataset = Data(X=X[0], Y=Y[0], transformer=self._transformer, doc_max_len=doc_max_len)
 
         # Validation dataset
-        val_dataset = Data(X=X[1], Y=Y[1], doc_max_len=doc_max_len)
+        val_dataset = Data(X=X[1], Y=Y[1], transformer=self._transformer, doc_max_len=doc_max_len)
 
         # Testing dataset
-        test_dataset = Data(X=X[2], Y=Y[2], doc_max_len=doc_max_len)
+        test_dataset = Data(X=X[2], Y=Y[2], transformer=self._transformer, doc_max_len=doc_max_len)
 
         print(f'Size of training data {len(train_dataset)}, validation data {len(val_dataset)},'
               f' and testing data {len(test_dataset)}.')
@@ -242,6 +268,8 @@ class ExperimentSuite:
             model = RNN(**model_args['model_kwargs'])
         elif self._model == 'GRU':
             model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'DischargeBERT':
+            model = TransformerModel(**model_args['model_kwargs'])
         else:
             raise Exception('Invalid model type!')
 
@@ -259,6 +287,7 @@ class ExperimentSuite:
               train_kwargs=model_args['train_kwargs'],
               optimizer=optimizer,
               train_loader=train_loader,
+              transformer=self._transformer,
               val_loader=val_loader,
               class_weights=None,
               save_name=save_name)
@@ -271,6 +300,7 @@ class ExperimentSuite:
         test_scores = scoring(model=model,
                               data_loader=test_loader,
                               multilabel=True,
+                              transformer=self._transformer,
                               class_weights=None)
         print(f'Test loss: {test_scores["loss"]}')
 
@@ -366,7 +396,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model',
                     required=True,
                     type=str,
-                    choices=['CNN', 'LSTM', 'BiLSTM', 'GRU', 'BiGRU', 'ClinicalBERT'],
+                    choices=['CNN', 'LSTM', 'BiLSTM', 'GRU', 'BiGRU', 'DischargeBERT'],
                     help='Select a predefined model.')
 parser.add_argument('-d', '--dataset',
                     required=True,
