@@ -26,6 +26,7 @@ def train(model,
           train_kwargs: Dict[str, Union[bool, int]],
           optimizer,
           train_loader,
+          transformer: bool,
           val_loader=None,
           class_weights: np.array = None,
           save_name: str = None):
@@ -42,6 +43,8 @@ def train(model,
         Optimizer used for controlling parameter training via backward propagation
     train_loader : pytorch data loader
         Dataloader containing the training dataset; samples X and ground-truth values Y
+    transformer : bool; default=False
+        Flag indicating whether the model is a transformer or not
     val_loader : pytorch data loader
         Dataloader contianing the validation dataset; samples X and ground-truth values Y
     class_weights : np.array
@@ -71,7 +74,6 @@ def train(model,
     # Variables to track validation performance and early stopping
     best_val_loss = np.inf
     patience_counter = 0
-
     ### Train model ###
     for epoch in range(epochs):
         print(f'Epoch: {epoch + 1}')
@@ -85,18 +87,23 @@ def train(model,
         # Keep track of training time
         start_time = time.time()
         for b, batch in enumerate(train_loader):
-            print(f'Batch: {b}')
             # set gradients to zero for every new batch
             optimizer.zero_grad()
-
-            # Cast samples to device; token2id mapped and 0-padded documents of current batch
-            X = batch['X'].to(device)
-
-            # Cast ground-truth labels to device; multi-label or multi-class tensors
-            # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
-            Y = batch['Y'].to(device)
-
-            logits = model(X)
+            if transformer:
+                input_ids = batch['input_ids'].to(device)
+                token_type_ids = batch['token_type_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                logits = model(input_ids=input_ids,
+                               token_type_ids=token_type_ids,
+                               attention_mask=attention_mask)
+                Y = batch['labels'].to(device)
+            else:
+                # Cast samples to device; token2id mapped and 0-padded documents of current batch
+                X = batch['X'].to(device)
+                # Cast ground-truth labels to device; multi-label or multi-class tensors
+                # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
+                Y = batch['Y'].to(device)
+                logits = model(X)
             loss = 0
 
             y_trues.extend(Y.detach().cpu().numpy())
@@ -108,8 +115,8 @@ def train(model,
             optimizer.step()
 
             l_cpu = loss.cpu().detach().numpy()
-            #if b == 1:
-            #   break
+            if b == 1:
+               break
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)')
 
 
@@ -119,7 +126,8 @@ def train(model,
             scores = scoring(model=model,
                              data_loader=val_loader,
                              class_weights=class_weights,
-                             multilabel=multilabel)
+                             multilabel=multilabel,
+                             transformer=transformer)
             val_loss = scores['loss']
 
             ### Early stopping to prevent overfitting ###
@@ -140,6 +148,7 @@ def train(model,
 def scoring(model,
             data_loader,
             multilabel: bool,
+            transformer: bool = False,
             class_weights: np.array = None) -> Dict[str, Union[float, np.array]]:
 
     """
@@ -188,11 +197,19 @@ def scoring(model,
     with torch.no_grad():
         # loop through dataset
         for b, batch in enumerate(data_loader):
-            # Retrieve token2id mapped and 0-padded documents of current batch
-            X = batch['X'].to(device)
-            Y = batch['Y'].to(device)
-
-            logits = model(X)
+            if transformer:
+                input_ids = batch['input_ids'].to(device)
+                token_type_ids = batch['token_type_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                logits = model(input_ids=input_ids,
+                               token_type_ids=token_type_ids,
+                               attention_mask=attention_mask)
+                Y = batch['labels'].to(device)
+            else:
+                # Retrieve token2id mapped and 0-padded documents of current batch
+                X = batch['X'].to(device)
+                Y = batch['Y'].to(device)
+                logits = model(X)
             loss = 0
 
             # Extend arrays with ground-truth values (Y), prediction probabilities (probs), and predictions (logits)
@@ -212,8 +229,8 @@ def scoring(model,
             loss += loss_fct(logits, Y)
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
 
     # Compute the scores
     scores = {}
