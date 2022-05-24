@@ -20,21 +20,30 @@ class MimicData(Dataset):
     def __init__(self,
                  X: np.array,
                  Y: np.array,
+                 transformer: bool = False,
                  doc_max_len: int = 4000):
 
         self.X = X
         self.Y = Y
+        self._transformer = transformer
         self._doc_max_len = doc_max_len
 
     def __len__(self):
-        return len(self.X)
+        return len(self.Y)
 
     def __getitem__(self, idx):
-        doc = self.X[idx]  # get sample at idx from pd dataframe
-        array = np.zeros(self._doc_max_len)  # create empty array filled with 0; 0 used for padding
-        doc = doc[:self._doc_max_len]  # shorten document to max length
-        doc_len = len(doc)  # get length of document
-        array[:doc_len] = doc  # add document to empty array, if document shorter than max length then add 0-padding
-        sample = {'X': torch.tensor(array, dtype=torch.long),
-                  'Y': torch.tensor(self.Y[idx], dtype=torch.float)}  # create dict for current sample at idx
+        if self._transformer:
+            sample = {'input_ids': self.X['input_ids'][idx],
+                      'token_type_ids': self.X['token_type_ids'][idx],
+                      'attention_mask': self.X['attention_mask'][idx]}
+            #sample = {key: torch.tensor(val[idx] for key, val in self.X.items())}
+            sample['labels'] = torch.tensor(self.Y[idx], dtype=torch.float)
+        else:
+            doc = self.X[idx]  # get sample at idx from pd dataframe
+            array = np.zeros(self._doc_max_len)  # create empty array filled with 0; 0 used for padding
+            doc = doc[:self._doc_max_len]  # shorten document to max length
+            doc_len = len(doc)  # get length of document
+            array[:doc_len] = doc  # add document to empty array, if document shorter than max length then add 0-padding
+            sample = {'X': torch.tensor(array, dtype=torch.long),
+                      'Y': torch.tensor(self.Y[idx], dtype=torch.float)}  # create dict for current sample at idx
         return sample
