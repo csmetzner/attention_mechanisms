@@ -27,8 +27,6 @@ class CNN(nn.Module):
     ----------
     n_labels : int
         Number of labels considered in the label space
-    n_cats : int
-        Number of high-level categories to perform hierarchical attention
     embedding_dim : int
         Dimension of word embeddings, i.e., dense vector representation
     embedding_matrix : np.array
@@ -43,10 +41,18 @@ class CNN(nn.Module):
         Defines the attention module/mechanism applied to perform attention to the latent document representation input
     scale : bool; default=False
         Flag indicating if energy scores (QxK.T) should be scaled by the root of
+    multihead : bool; default=False
+        Flag indicating if multi-head attention is used
+    num_heads : int; default=None
+        Number of attention heads when multi-head attention is activated
+    n_cats : int
+        Number of high-level categories to perform hierarchical attention
     label_embedding_matrix : np.array
         Embedding matrix pretrained on the code descriptions
     cat_embedding_matrix : np.array
         Embedding matrix pretrained on the category descriptions
+    code2cat_map : List[int]; default=None
+        Category index to map codes to categories
 
     """
     def __init__(self,
@@ -131,6 +137,22 @@ class CNN(nn.Module):
         self.output_layer.bias.data.fill_(0.01)
 
     def forward(self, docs: torch.Tensor, return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+        """
+        Forward pass of CNN model
+
+        Parameters
+        ----------
+        docs : torch.tensor
+            Input documents
+        return_doc_embeds : bool; default=False
+            Flag indicating if doc embeddings should be returned
+
+        Returns
+        -------
+        Union[torch.Tensor, Tuple[torch.Tensor]]
+            [Logits], [Logits, doc_embeds]
+
+        """
         # Creates a mask for words with boolean expression: True=word; False=padding
         mask_words = (docs != 0)
         words_per_line = mask_words.sum(-1)  # checks number of words for each line
@@ -152,6 +174,7 @@ class CNN(nn.Module):
         # Embedding layer output: (batch_size, sequence_length, embedding_size)
         # conv1d layer input: (batch_size, embedding_size, sequence_length)
         word_embeds = word_embeds.permute(0, 2, 1)
+
 
         # parallel 1D word convolutions
         conv_outs = []
