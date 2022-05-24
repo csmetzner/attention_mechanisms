@@ -1,0 +1,22 @@
+model: 'DischargeBERT'
+model_kwargs:
+  n_labels: ~
+  n_cats: ~
+  embedding_dim: 300
+  model_name: 'DischargeBERT'
+  label_embedding_matrix: ~
+  cat_embedding_matrix: ~
+  code2cat_map: ~
+  att_module: ~
+  scale: False
+  multihead: False
+  num_heads: ~
+train_kwargs:
+  doc_max_len: ~
+  batch_size: 8
+  epochs: 100
+  patience: 5
+  lr: 0.0001
+  optimizer: 'Adam'
+  multilabel: True
+
