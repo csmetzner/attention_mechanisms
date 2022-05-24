@@ -14,6 +14,7 @@ nltk = "*"
 tqdm = "*"
 xlsxwriter = "*"
 openpyxl = "*"
+transformers = "*"
 
 [dev-packages]
 
