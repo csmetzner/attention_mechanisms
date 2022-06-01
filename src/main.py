@@ -20,6 +20,7 @@ warnings.filterwarnings('ignore')
 from datetime import datetime
 timestamp = datetime.now().strftime('%Y%m%d_%H%M')
 
+print('Load libraries!')
 # installed libraries
 import numpy as np
 import pandas as pd
@@ -40,7 +41,7 @@ try:
 except NameError:
     root = os.path.dirname(os.getcwd())
 sys.path.append(root)
-
+print('Done!')
 # Select seed for reproducibility
 SEED = 42
 random.seed(SEED)
@@ -172,6 +173,7 @@ class ExperimentSuite:
             with open(os.path.join(path_data, 'code_embeddings', f'embedding_matrix_{dataset}_mapping.pkl'), 'rb') as f:
                 code2cat_map = pickle.load(f)
             self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
+
         if att_module == 'hierarchical_label':
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
@@ -206,6 +208,7 @@ class ExperimentSuite:
                 self._model_args['model_kwargs']['n_filters'] = [int(hidden_dim)] * 3
             else:
                 self._model_args['model_kwargs']['hidden_size'] = int(hidden_dim)
+
         return self._model_args
 
     def fit_model(self,
@@ -499,8 +502,6 @@ def main():
                                        num_heads=args.num_heads,
                                        hidden_dim=args.hidden_dim,
                                        gamma=args.gamma_att)
-
-    #print(model_args)
 
     if args.singularity:
         path_res_dir = 'mnt/results/'
