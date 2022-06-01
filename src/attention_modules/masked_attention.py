@@ -271,7 +271,7 @@ class RankedMaskedAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
 
             # Ranked masked attention
-            zero_mask = torch.zeros(A.size())
+            zero_mask = torch.zeros(A.size()).to(device)
             values, indices = torch.topk(A, k=self._gamma, dim=2, largest=True)
             A = zero_mask.scatter(2, indices, values)
 
@@ -290,7 +290,7 @@ class RankedMaskedAttention(nn.Module):
             A = F.softmax(input=E, dim=2)
 
             # Ranked masked attention
-            zero_mask = torch.zeros(A.size())
+            zero_mask = torch.zeros(A.size()).to(device)
             values, indices = torch.topk(A, k=self._gamma, dim=2, largest=True)
             A = zero_mask.scatter(2, indices, values)
 
