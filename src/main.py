@@ -116,7 +116,8 @@ class ExperimentSuite:
                           patience: int = None,
                           scale: bool = False,
                           multihead: bool = False,
-                          num_heads: int = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          num_heads: int = None,
+                          gamma: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Set up paths to directory where config_files are stored
         path_config = os.path.join(root, 'src', 'config_files')
@@ -197,6 +198,8 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['doc_max_len'] = doc_max_len
         if patience is not None:
             self._model_args['train_kwargs']['patience'] = patience
+        if gamma is not None:
+            self._model_args['model_kwargs']['gamma'] = gamma
         return self._model_args
 
     def fit_model(self,
@@ -406,7 +409,10 @@ parser.add_argument('-d', '--dataset',
 parser.add_argument('-am', '--attention_module',
                     required=True,
                     type=str,
-                    choices=['target', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label'],
+                    choices=['target', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label',
+                             'hierarchical_context', 'hierarchical_double_attention',
+                             'context', 'context_diff',
+                             'max_masked', 'rank_masked'],
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
@@ -450,6 +456,8 @@ parser.add_argument('-sc', '--singularity',
                     default=False,
                     type=parse_boolean,
                     help='Set flag to store results in directory binded between container and home directory.')
+parser.add_argument('-ga', '--gamma_att',
+                    help='Set gamma for max masked attention.')
 
 args = parser.parse_args()
 
@@ -480,7 +488,8 @@ def main():
                                        patience=args.patience,
                                        scale=args.scale,
                                        multihead=args.multihead,
-                                       num_heads=args.num_heads)
+                                       num_heads=args.num_heads,
+                                       gamma=args.gamma_att)
 
     #print(model_args)
 
