@@ -117,6 +117,7 @@ class ExperimentSuite:
                           scale: bool = False,
                           multihead: bool = False,
                           num_heads: int = None,
+                          hidden_dim: int = None,
                           gamma: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Set up paths to directory where config_files are stored
@@ -200,6 +201,11 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['patience'] = patience
         if gamma is not None:
             self._model_args['model_kwargs']['gamma'] = gamma
+        if hidden_dim is not None:
+            if self._model == 'CNN':
+                self._model_args['model_kwargs']['n_filters'] = [int(hidden_dim)] * 3
+            else:
+                self._model_args['model_kwargs']['hidden_size'] = int(hidden_dim)
         return self._model_args
 
     def fit_model(self,
@@ -456,6 +462,8 @@ parser.add_argument('-sc', '--singularity',
                     default=False,
                     type=parse_boolean,
                     help='Set flag to store results in directory binded between container and home directory.')
+parser.add_argument('-hd', '--hidden_dim',
+                    help='Set hidden dimension.')
 parser.add_argument('-ga', '--gamma_att',
                     help='Set gamma for max masked attention.')
 
@@ -489,6 +497,7 @@ def main():
                                        scale=args.scale,
                                        multihead=args.multihead,
                                        num_heads=args.num_heads,
+                                       hidden_dim=args.hidden_dim,
                                        gamma=args.gamma_att)
 
     #print(model_args)
