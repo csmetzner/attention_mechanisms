@@ -11,9 +11,10 @@ model_kwargs:
   n_filters: [500, 500, 500]
   dropout_p: 0.5
   att_module: ~
-  scale: False
+  scale: True
   multihead: False
   num_heads: ~
+  gamma: ~
 train_kwargs:
   doc_max_len: ~
   batch_size: 32
