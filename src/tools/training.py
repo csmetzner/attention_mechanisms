@@ -115,8 +115,8 @@ def train(model,
             optimizer.step()
 
             l_cpu = loss.cpu().detach().numpy()
-            if b == 1:
-               break
+            #if b == 1:
+            #   break
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)')
 
 
@@ -229,8 +229,8 @@ def scoring(model,
             loss += loss_fct(logits, Y)
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
 
     # Compute the scores
     scores = {}
