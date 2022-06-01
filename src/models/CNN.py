@@ -69,7 +69,8 @@ class CNN(nn.Module):
                  n_cats: int = None,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None):
+                 code2cat_map: List[int] = None,
+                 gamma: float = None):
 
         super().__init__()
         self._n_labels = n_labels
@@ -85,6 +86,7 @@ class CNN(nn.Module):
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
+        self._gamma = gamma
 
         # Check to make sure window_sizes has same number of entries as num_filters
         if len(self._window_sizes) != len(self._n_filters):
@@ -128,7 +130,8 @@ class CNN(nn.Module):
                                          num_cats=self._n_cats,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map)
+                                         code2cat_map=self._code2cat_map,
+                                         gamma=self._gamma)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
