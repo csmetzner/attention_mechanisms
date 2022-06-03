@@ -321,7 +321,6 @@ class ExperimentSuite:
                      dataset=self._dataset,
                      train_kwargs=model_args['train_kwargs'],
                      model_kwargs=model_args['model_kwargs'],
-                     embedding_dim=model_args['model_kwargs']['embedding_dim'],
                      path_res_dir=path_res_dir,
                      model_name=model_name)
 
@@ -331,7 +330,6 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                  dataset: str,
                  train_kwargs: Dict[str, int],
                  model_kwargs: Dict[str, Union[int, str]],
-                 embedding_dim: int,
                  path_res_dir: str,
                  model_name: str):
 
@@ -345,21 +343,34 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
 
     metrics = ['f1_macro_sk', 'f1_micro_sk',
                'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
-    columns = ['dataset', 'word_embedding_dim', 'doc_max_len', 'batch_size', 'patience',
-               'scale', 'multihead', 'num_heads',
-               'f1_macro_sk', 'f1_micro_sk',
-               'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
+    columns = ['dataset',
+               'doc_max_len',
+               'batch_size',
+               'patience',
+               'att_module',
+               'word_embedding_dim',
+               'hidden_dim',
+               'dropout_p',
+               'scale',
+               'multihead',
+               'num_heads',
+               'gamma',
+               'f1_macro_sk', 'f1_micro_sk', 'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
 
     file_name = f'scores.xlsx'
     path_save_xlsx = os.path.join(path_res_scores, file_name)
     scores_to_excel = {f'{model_type}': [dataset,
-                                         embedding_dim,
                                          train_kwargs['doc_max_len'],
                                          train_kwargs['batch_size'],
                                          train_kwargs['patience'],
+                                         model_kwargs['att_module'],
+                                         model_kwargs['embedding_dim'],
+                                         model_kwargs['n_filters'] if model_type == 'CNN' else model_kwargs['hidden_size'],
+                                         train_kwargs['dropout_p'],
                                          model_kwargs['scale'],
                                          model_kwargs['multihead'],
-                                         model_kwargs['num_heads']]}
+                                         model_kwargs['num_heads'],
+                                         model_kwargs['gamma']]}
 
     for metric in metrics:
         value = scores[metric]
