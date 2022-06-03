@@ -119,7 +119,8 @@ class ExperimentSuite:
                           multihead: bool = False,
                           num_heads: int = None,
                           hidden_dim: int = None,
-                          gamma: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          gamma: float = None,
+                          alignment: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Set up paths to directory where config_files are stored
         path_config = os.path.join(root, 'src', 'config_files')
@@ -210,6 +211,8 @@ class ExperimentSuite:
                 self._model_args['model_kwargs']['n_filters'] = [int(hidden_dim)] * 3
             else:
                 self._model_args['model_kwargs']['hidden_size'] = int(hidden_dim)
+        if alignment is not None:
+            self._model_args['model_kwargs']['alignment_kwargs']['alignment'] = alignment
 
         return self._model_args
 
@@ -489,6 +492,9 @@ parser.add_argument('-hd', '--hidden_dim',
                     help='Set hidden dimension.')
 parser.add_argument('-ga', '--gamma_att',
                     help='Set gamma for max masked attention.')
+parser.add_argument('-al', '--alignment',
+                    type=parse_boolean,
+                    help='Flag indicating whether key and query matrix should be aligned.')
 
 args = parser.parse_args()
 
@@ -521,7 +527,8 @@ def main():
                                        multihead=args.multihead,
                                        num_heads=args.num_heads,
                                        hidden_dim=args.hidden_dim,
-                                       gamma=args.gamma_att)
+                                       gamma=args.gamma_att,
+                                       alignment=args.alignment)
 
     if args.singularity:
         path_res_dir = 'mnt/results/'
