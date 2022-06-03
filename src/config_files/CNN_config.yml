@@ -2,14 +2,14 @@ model: 'CNN'
 model_kwargs:
   n_labels: ~
   n_cats: ~
-  embedding_dim: 300
+  embedding_dim: 200
   embedding_matrix: ~
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
   code2cat_map: ~
-  window_sizes: [3, 4, 5]
+  window_sizes: [3, 5, 7]
   n_filters: [500, 500, 500]
-  dropout_p: 0.5
+  dropout_p: 0.3
   att_module: ~
   scale: True
   multihead: False
@@ -23,4 +23,5 @@ train_kwargs:
   lr: 0.0001
   optimizer: 'Adam'
   multilabel: True
+
 
