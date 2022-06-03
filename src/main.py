@@ -134,14 +134,16 @@ class ExperimentSuite:
         with open(os.path.join(path_config, 'datasets_config.yml'), 'r') as f:
             datasets_config = yaml.safe_load(stream=f)
 
+        # check hierarchical att_module
+
         # Retrieve required model arguments
         if dataset == 'PathReports':
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels'][task]
-            if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
+            if att_module.split('_')[0] == 'hierarchical':
                 self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats'][task]
         else:
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels']
-            if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
+            if att_module.split('_')[0] == 'hierarchical':
                 self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
 
         # Add maximal length of document
@@ -169,7 +171,7 @@ class ExperimentSuite:
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
-        if (att_module == 'hierarchical_target') or (att_module == 'hierarchical_label'):
+        if att_module.split('_')[0] == 'hierarchical':
             with open(os.path.join(path_data, 'code_embeddings', f'embedding_matrix_{dataset}_mapping.pkl'), 'rb') as f:
                 code2cat_map = pickle.load(f)
             self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
