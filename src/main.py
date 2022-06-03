@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 from datetime import datetime
 timestamp = datetime.now().strftime('%Y%m%d_%H%M')
 
-print('Load libraries!')
+print('Load libraries!', flush=True)
 # installed libraries
 import numpy as np
 import pandas as pd
@@ -41,7 +41,7 @@ try:
 except NameError:
     root = os.path.dirname(os.getcwd())
 sys.path.append(root)
-print('Done!')
+print('Done!', flush=True)
 # Select seed for reproducibility
 SEED = 42
 random.seed(SEED)
@@ -54,7 +54,7 @@ np.random.seed(SEED)
 
 # Pytorch set device to 'cuda'/GPUs if available otherwise use available CPUs
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'The experiment uses the following device: {device}')
+print(f'The experiment uses the following device: {device}', flush=True)
 
 
 # noinspection PyUnboundLocalVariable
@@ -265,7 +265,7 @@ class ExperimentSuite:
         test_dataset = Data(X=X[2], Y=Y[2], transformer=self._transformer, doc_max_len=doc_max_len)
 
         print(f'Size of training data {len(train_dataset)}, validation data {len(val_dataset)},'
-              f' and testing data {len(test_dataset)}.')
+              f' and testing data {len(test_dataset)}.', flush=True)
 
         # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -316,7 +316,7 @@ class ExperimentSuite:
                               multilabel=True,
                               transformer=self._transformer,
                               class_weights=None)
-        print(f'Test loss: {test_scores["loss"]}')
+        print(f'Test loss: {test_scores["loss"]}', flush=True)
 
         store_scores(scores=test_scores,
                      model_type=self._model,

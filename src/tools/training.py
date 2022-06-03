@@ -76,7 +76,7 @@ def train(model,
     patience_counter = 0
     ### Train model ###
     for epoch in range(epochs):
-        print(f'Epoch: {epoch + 1}')
+        print(f'Epoch: {epoch + 1}', flush=True)
         # Enable training of layers with trainable parameters
         model.train(True)
 
@@ -117,7 +117,7 @@ def train(model,
             l_cpu = loss.cpu().detach().numpy()
             #if b == 1:
             #   break
-        print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)')
+        print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
 
         ### Validate model ###
@@ -138,7 +138,7 @@ def train(model,
             else:
                 patience_counter += 1
                 if patience_counter >= patience:
-                    print('Early stopping! No improvement in validation performance!')
+                    print('Early stopping! No improvement in validation performance!', flush=True)
                     break
     # If no validation dataset available, save after every epoch
         else:
