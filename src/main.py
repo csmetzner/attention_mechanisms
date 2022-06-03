@@ -225,12 +225,19 @@ class ExperimentSuite:
         optim = model_args['train_kwargs']['optimizer']
         lr = model_args['train_kwargs']['lr']
 
-        model_name = f'{self._model}' \
-                     f'_{self._att_module}' \
-                     f'_{model_args["model_kwargs"]["multihead"]}' \
-                     f'_{model_args["model_kwargs"]["num_heads"]}' \
-                     f'_{model_args["model_kwargs"]["embedding_dim"]}' \
-                    f'_{doc_max_len}_{batch_size}_{optim}_{timestamp}'
+        model_name = f"{self._model}" \
+                     f"_{self._dataset}" \
+                     f"_{model_args['train_kwargs']['batch_size']}" \
+                     f"_{model_args['train_kwargs']['patience']}" \
+                     f"_{model_args['model_kwargs']['att_module']}" \
+                     f"_{model_args['model_kwargs']['embedding_dim']}" \
+                     f"_{model_args['model_kwargs']['n_filters'][0] if self._model == 'CNN' else model_args['model_kwargs']['hidden_size']}" \
+                     f"_{model_args['model_kwargs']['dropout_p']}" \
+                     f"_{model_args['model_kwargs']['scale']}" \
+                     f"_{model_args['model_kwargs']['multihead']}" \
+                     f"_{model_args['model_kwargs']['num_heads']}" \
+                     f"_{model_args['model_kwargs']['gamma']}" \
+                     f'{timestamp}'
 
         print(f'Name of model: {model_name}')
 
