@@ -5,7 +5,7 @@
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/31/2022
-    @last modified: 05/31/2022
+    @last modified: 06/05/2022
 
 """
 # built-in libraries
@@ -57,7 +57,7 @@ class MaxMaskedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self._gamma = float(gamma)
+        self._gamma = gamma
 
         # Initialize key-value pair matrices
         self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
@@ -198,7 +198,7 @@ class RankedMaskedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self._gamma = int(gamma)
+        self._gamma = gamma
 
         # Initialize key-value pair matrices
         self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
