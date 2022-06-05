@@ -82,9 +82,10 @@ class ContextAttention(nn.Module):
         self.V.bias.data.fill_(0.01)
 
         # Initialize query embedding matrix
-        self.Q = nn.Linear(in_features=self._latent_doc_dim,
-                           out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q.weight)
+        self.Q_mat = nn.Linear(in_features=self._latent_doc_dim,
+                               out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q_mat.weight)
+        self.Q = self.Q_mat.weight.clone()
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -126,9 +127,10 @@ class ContextAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
+        Q = self.Q.to(device)
 
         if self._multihead:
-            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
@@ -150,9 +152,9 @@ class ContextAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             if self._scale:
-                E = self.Q.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = self.Q.weight.matmul(K.permute(0, 2, 1))
+                E = Q.matmul(K.permute(0, 2, 1))
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
             # A ∈ R^nxl, where n: number of labels and l: sequence length
@@ -235,9 +237,10 @@ class ContextAttentionDiffInput(nn.Module):
         self.V2.bias.data.fill_(0.01)
 
         # Initialze query embedding matrix
-        self.Q = nn.Linear(in_features=self._latent_doc_dim,
-                           out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q.weight)
+        self.Q_mat = nn.Linear(in_features=self._latent_doc_dim,
+                               out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q_mat.weight)
+        self.Q = self.Q_mat.weight.clone()
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -291,9 +294,10 @@ class ContextAttentionDiffInput(nn.Module):
         V1 = F.elu(self.V1(H)).permute(0, 2, 1)
         K2 = F.elu(self.K2(H)).permute(0, 2, 1)
         V2 = F.elu(self.V2(H)).permute(0, 2, 1)
+        Q = self.Q.to(device)
 
         if self._multihead:
-            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K1.size()[0], 1, 1).to(device)
+            Q = torch.unsqueeze(Q, dim=0).repeat(K1.size()[0], 1, 1)
             K1 = transpose_qkv(self.W_k1(K1), self._num_heads)
             V1 = transpose_qkv(self.W_v1(V1), self._num_heads)
             K2 = transpose_qkv(self.W_k2(K2), self._num_heads)
@@ -319,9 +323,9 @@ class ContextAttentionDiffInput(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             if self._scale:
-                E = self.Q.weight.matmul(K1.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = Q.matmul(K1.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = self.Q.weight.matmul(K1.permute(0, 2, 1))
+                E = Q.matmul(K1.permute(0, 2, 1))
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
             # A ∈ R^nxl, where n: number of labels and l: sequence length

@@ -75,10 +75,10 @@ class LabelAttention(nn.Module):
 
         # Init label embedding matrix by using linear layer
         # Q ∈ R^nxd_e where n: number of labels in |L| and d_e: embedding dimension of tokens
-        self.Q = nn.Linear(in_features=self._embedding_dim,
-                           out_features=self._num_labels,
-                           bias=True)
-        self.Q.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
+        self.Q_mat = nn.Linear(in_features=self._embedding_dim,
+                               out_features=self._num_labels)
+        self.Q_mat.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
+        self.Q = self.Q_mat.weight.clone()
 
         # Need a 1D-Conv layer to map the embedded (with embedding dimension) code descriptions
         # to the output dimension of the parallel convolution layers
@@ -127,7 +127,7 @@ class LabelAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q = self._mapping_layer(self.Q.weight.permute(1, 0)).permute(1, 0).to(device)
+        Q = self._mapping_layer(self.Q.permute(1, 0)).permute(1, 0).to(device)
 
         if self._multihead:
             Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)

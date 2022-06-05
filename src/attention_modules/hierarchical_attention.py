@@ -83,16 +83,18 @@ class HierarchicalTargetAttention(nn.Module):
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_cats)
-        nn.init.xavier_uniform_(self.Q1.weight)
+        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1_mat.weight)
+        self.Q1 = self.Q1_mat.weight.clone()
         #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2.weight)
+        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2_mat.weight)
+        self.Q2 = self.Q2_mat.weight.clone()
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -143,10 +145,12 @@ class HierarchicalTargetAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
+        Q1 = self.Q1.to(device)
+        Q2 = self.Q2.to(device)
 
         if self._multihead:
-            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
-            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -170,11 +174,11 @@ class HierarchicalTargetAttention(nn.Module):
             C2 = torch.bmm(A2, V)
 
         else:
-            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
+                E1 = Q1.matmul(K.permute(0, 2, 1))
 
             A1 = F.softmax(input=E1, dim=-1)
             C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
@@ -256,16 +260,18 @@ class HierarchicalContextAttention(nn.Module):
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_cats)
-        nn.init.xavier_uniform_(self.Q1.weight)
+        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1_mat.weight)
+        self.Q1 = self.Q1_mat.weight.clone()
         #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2.weight)
+        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2_mat.weight)
+        self.Q2 = self.Q2_mat.weight.clone()
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -316,10 +322,12 @@ class HierarchicalContextAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
+        Q1 = self.Q1.to(device)
+        Q2 = self.Q2.to(device)
 
         if self._multihead:
-            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
-            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -343,11 +351,11 @@ class HierarchicalContextAttention(nn.Module):
                 C2[:, i, :] += C1[:, code2cat_idx, :]
 
         else:
-            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
+                E1 = Q1.matmul(K.permute(0, 2, 1))
 
             A1 = F.softmax(input=E1, dim=-1)
             C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
@@ -429,16 +437,17 @@ class HierarchicalDoubleAttention(nn.Module):
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_cats)
-        nn.init.xavier_uniform_(self.Q1.weight)
-        #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1_mat.weight)
+        self.Q1 = self.Q1_mat.weight.clone()
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2.weight)
+        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2_mat.weight)
+        self.Q2 = self.Q2_mat.weight.clone()
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -489,10 +498,12 @@ class HierarchicalDoubleAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
+        Q1 = self.Q1.to(device)
+        Q2 = self.Q2.to(device)
 
         if self._multihead:
-            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
-            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -517,11 +528,11 @@ class HierarchicalDoubleAttention(nn.Module):
             C2 = torch.bmm(A2, V)
 
         else:
-            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
+                E1 = Q1.matmul(K.permute(0, 2, 1))
 
             A1 = F.softmax(input=E1, dim=-1)
 
@@ -605,16 +616,17 @@ class HierarchicalLabelAttention(nn.Module):
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_cats)
-        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_cats)
+        self.Q1_mat.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
         #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
-
+        self.Q1 = self.Q1_mat.weight.clone()
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
-                            out_features=self._num_labels)
-        self.Q2.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
+        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
+                                out_features=self._num_labels)
+        self.Q2_mat.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
+        self.Q2 = self.Q2_mat.weight.clone()
 
         # Conv1D layer to avoid dimensionality mismatch
         self._mapping_layer = nn.Conv1d(in_channels=self._embedding_dim,
@@ -670,8 +682,8 @@ class HierarchicalLabelAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0).to(device)
-        Q2 = self._mapping_layer(self.Q2.weight.permute(1, 0)).permute(1, 0).to(device)
+        Q1 = self._mapping_layer(self.Q1.permute(1, 0)).permute(1, 0).to(device)
+        Q2 = self._mapping_layer(self.Q2.permute(1, 0)).permute(1, 0).to(device)
 
         if self._multihead:
             Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
