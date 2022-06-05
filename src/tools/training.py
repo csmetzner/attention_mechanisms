@@ -8,6 +8,7 @@ This file contains source code for the training procedure of the models.
 
 # built-in libraries
 import time
+import random
 from typing import Dict, Union
 
 # installed libraries
@@ -20,7 +21,10 @@ from .performance_metrics import get_scores
 
 # Select GPU as hardware if available otherwise use available CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+SEED = 42
+random.seed(SEED)
+torch.manual_seed(SEED)
+np.random.seed(SEED)
 
 def train(model,
           train_kwargs: Dict[str, Union[bool, int]],
