@@ -205,7 +205,7 @@ class ExperimentSuite:
         if patience is not None:
             self._model_args['train_kwargs']['patience'] = patience
         if gamma is not None:
-            self._model_args['model_kwargs']['gamma'] = gamma
+            self._model_args['model_kwargs']['gamma'] = float(gamma)
         if hidden_dim is not None:
             if self._model == 'CNN':
                 self._model_args['model_kwargs']['n_filters'] = [int(hidden_dim)] * 3
