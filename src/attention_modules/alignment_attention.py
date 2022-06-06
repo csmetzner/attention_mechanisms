@@ -91,8 +91,20 @@ class AlignmentAttention(nn.Module):
 
         ######################## compute CT loss ######################
         # element-wise product of cost and transport map
-        CT_loss = self._rho * torch.mean(torch.sum((cost * forward_map), dim=1)) + (1 - self._rho) * torch.mean(torch.sum((cost * backward_map), dim=0))
-        print(f"CT-Loss: {CT_loss}")
+        # forward loss
+        forward_loss = cost * forward_map
+        forward_loss = torch.sum(forward_loss, dim=1)
+        forward_loss = torch.mean(forward_loss)
+        forward_loss = self._rho * forward_loss
+
+        # backward loss
+        backward_loss = cost * backward_map
+        backward_loss = torch.sum(backward_loss, dim=0)
+        backward_loss = torch.mean(backward_loss)
+        backward_loss = (1 - self._rho) * backward_loss
+
+        CT_loss = torch.tensor(forward_loss, requires_grad=True) + torch.tensor(backward_loss, requires_grad=True)
+        print(f'CT: {CT_loss}')
         return CT_loss
 
 
@@ -154,8 +166,8 @@ class Critic(nn.Module):
         # compute output of highway architecture I
         I = I_transform + I_carry
         I = torch.sum(I.permute(0, 2, 1), dim=-1)
-
-        out = self.fc2(self.act_fc(self.fc1(I)))
+        out1 = self.act_fc(self.fc1(I))
+        out = self.fc2(out1)
         return out
 
 
@@ -177,11 +189,12 @@ class Navigator(nn.Module):
         super().__init__()
         self._dim = dim
         self._hidden = hidden
+        self._hidden_half = hidden // 2
 
         # init fully connected layers
         self.fc1 = nn.Linear(in_features=self._dim, out_features=self._hidden)
-        self.fc2 = nn.Linear(in_features=self._hidden, out_features=self._hidden // 2)
-        self.fc3 = nn.Linear(in_features=self._hidden // 2, out_features=1)
+        self.fc2 = nn.Linear(in_features=self._hidden, out_features=self._hidden_half)
+        self.fc3 = nn.Linear(in_features=self._hidden_half, out_features=1)
 
         # init activation function
         self.LeakyRelu = nn.LeakyReLU()
@@ -201,7 +214,7 @@ class Navigator(nn.Module):
             Shape: 1-dimensional element
 
         """
-        x = self.LeakyRelu(self.fc1(x))
-        x = self.LeakyRelu(self.fc2(x))
-        m = self.fc3(x).clone()
+        x1 = self.LeakyRelu(self.fc1(x))
+        x2 = self.LeakyRelu(self.fc2(x1))
+        m = self.fc3(x2).clone()
         return m
