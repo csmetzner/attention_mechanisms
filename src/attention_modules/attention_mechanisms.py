@@ -207,7 +207,7 @@ class Attention(nn.Module):
                                                          multihead=self._multihead,
                                                          num_heads=self._num_heads)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, H: torch.Tensor, alignment: bool = None) -> Tuple[torch.Tensor]:
         """
         Forward pass of general attention mechanism class.
 
@@ -232,3 +232,6 @@ class Attention(nn.Module):
         else:
             C, A = self.attention_layer(H=H)
         return C, A
+
+    def get_matrices(self, K, Q):
+        return K, Q

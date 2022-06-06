@@ -55,6 +55,8 @@ class TargetAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
+        self.K_alignment = None
+        self.Q_alignment = None
 
         # Initialize key-value pair matrices
         self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
@@ -144,5 +146,8 @@ class TargetAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
+
+        self.K_alignment = K
+        self.Q_alignment = Q
 
         return C, A

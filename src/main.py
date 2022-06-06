@@ -34,6 +34,7 @@ from tools.training import train, scoring
 from models.CNN import CNN
 from models.RNN import RNN
 from models.Transformers import TransformerModel
+from attention_modules.alignment_attention import AlignmentAttention
 
 # get root path
 try:
@@ -212,7 +213,7 @@ class ExperimentSuite:
             else:
                 self._model_args['model_kwargs']['hidden_size'] = int(hidden_dim)
         if alignment is not None:
-            self._model_args['model_kwargs']['alignment_kwargs']['alignment'] = alignment
+            self._model_args['train_kwargs']['alignment'] = alignment
 
         return self._model_args
 
@@ -227,6 +228,7 @@ class ExperimentSuite:
         batch_size = model_args['train_kwargs']['batch_size']
         optim = model_args['train_kwargs']['optimizer']
         lr = model_args['train_kwargs']['lr']
+        alignment = model_args['train_kwargs']['alignment']
 
         model_name = f"{self._model}" \
                      f"_{self._dataset}" \
@@ -301,6 +303,12 @@ class ExperimentSuite:
         model.to(device=device)
         model = torch.nn.DataParallel(model)
 
+        if alignment:
+            alignment_model = AlignmentAttention(latent_doc_dim=np.sum(model_args['model_kwargs']['n_filters']) if model_args['model'] == 'CNN' else model_args['hidden_size'],
+                                                 dim=256,
+                                                 nav_hidden=512,
+                                                 rho=0.5)
+
         # Set up optimizer
         if optim == 'Adam':
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
@@ -314,7 +322,8 @@ class ExperimentSuite:
               transformer=self._transformer,
               val_loader=val_loader,
               class_weights=None,
-              save_name=save_name)
+              save_name=save_name,
+              alignment_model=alignment_model)
 
         # Test the best model - load it
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
@@ -426,7 +435,6 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
 
 # Use argparse library to set up command line arguments
 parser = argparse.ArgumentParser()
-
 # Model-unspecific commandline arguments
 parser.add_argument('-m', '--model',
                     required=True,
