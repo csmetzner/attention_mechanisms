@@ -308,6 +308,8 @@ class ExperimentSuite:
                                                  dim=256,
                                                  nav_hidden=512,
                                                  rho=0.5)
+        else:
+            alignment_model = None
 
         # Set up optimizer
         if optim == 'Adam':
