@@ -115,9 +115,10 @@ class TargetAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1).to(device)
-        V = F.elu(self.V(H)).permute(0, 2, 1).to(device)
-        Q = self.Q.to(device)
+        K = F.elu(self.K(H)).permute(0, 2, 1)
+        V = F.elu(self.V(H)).permute(0, 2, 1)
+        Q = self.Q
+        Q.to(device)
 
         if self._multihead:
             Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
