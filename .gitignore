@@ -18,6 +18,3 @@ data/external/.DS_Store
 src/attention_modules/__pycache__/
 src/models/__pycache__/
 src/tools/__pycache__/
-# Ignore since correct version are already uploaded
-Pipfile
-Pipfile.lock
