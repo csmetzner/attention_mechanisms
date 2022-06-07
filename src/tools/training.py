@@ -9,15 +9,17 @@ This file contains source code for the training procedure of the models.
 # built-in libraries
 import time
 import random
-from typing import Dict, Union
+from typing import Dict, Union, List
 
 # installed libraries
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
 # Custom libraries
 from .performance_metrics import get_scores
+
 
 # Select GPU as hardware if available otherwise use available CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -26,14 +28,15 @@ random.seed(SEED)
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 
-def train(model,
+def train(model: nn.Module,
           train_kwargs: Dict[str, Union[bool, int]],
           optimizer,
           train_loader,
           transformer: bool,
           val_loader=None,
           class_weights: np.array = None,
-          save_name: str = None):
+          save_name: str = None,
+          alignment_model: nn.Module = None):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
@@ -51,16 +54,19 @@ def train(model,
         Flag indicating whether the model is a transformer or not
     val_loader : pytorch data loader
         Dataloader contianing the validation dataset; samples X and ground-truth values Y
-    class_weights : np.array
+    class_weights : np.array; default=None
         Array containing the class weights in shape (n_classes,)
-    save_name : str
+    save_name : str; default=None
         Descriptive name to save the trained model
+    alignment_model: nn.Module; default=None
+        Alignment model contains the critic and the navigator to determine the alignment loss.
 
     """
 
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
     multilabel = train_kwargs['multilabel']
+    alignment = train_kwargs['alignment']
 
     # Set up loss function
     class_weights_tensor = None
@@ -78,6 +84,7 @@ def train(model,
     # Variables to track validation performance and early stopping
     best_val_loss = np.inf
     patience_counter = 0
+
     ### Train model ###
     for epoch in range(epochs):
         print(f'Epoch: {epoch + 1}', flush=True)
@@ -92,7 +99,6 @@ def train(model,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             # set gradients to zero for every new batch
-            optimizer.zero_grad()
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 token_type_ids = batch['token_type_ids'].to(device)
@@ -109,12 +115,22 @@ def train(model,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
+            if alignment:
+                alignment_model._optim_critic.zero_grad()
+                alignment_model._optim_navigator.zero_grad()
+                alignment_loss = alignment_model(K=model.module.attention_layer.attention_layer.K_alignment,
+                                                 Q=model.module.attention_layer.attention_layer.Q_alignment)
+                loss = loss + alignment_loss
+                alignment_loss.backward(retain_graph=True)
+                alignment_model._optim_critic.step()
+                alignment_model._optim_navigator.step()
 
             y_trues.extend(Y.detach().cpu().numpy())
             y_preds.extend(logits.detach().cpu().numpy())  # how do you have to compute these things for multi-class case
             loss += loss_fct(logits, Y)
 
             # Perform backpropagation
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
