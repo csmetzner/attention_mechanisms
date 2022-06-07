@@ -120,6 +120,7 @@ class ExperimentSuite:
                           multihead: bool = False,
                           num_heads: int = None,
                           hidden_dim: int = None,
+                          window_sizes: List[int] = None,
                           gamma: float = None,
                           alignment: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
@@ -214,6 +215,11 @@ class ExperimentSuite:
                 self._model_args['model_kwargs']['hidden_size'] = int(hidden_dim)
         if alignment is not None:
             self._model_args['train_kwargs']['alignment'] = alignment
+        if window_sizes is not None:
+            if self._model == 'CNN':
+                self._model_args['model_kwargs']['window_sizes'] = list(map(int, window_sizes))
+            else:
+                raise ValueError('Selected model does not have window_sizes as model kwargs')
 
         return self._model_args
 
@@ -502,6 +508,9 @@ parser.add_argument('-sc', '--singularity',
                     help='Set flag to store results in directory binded between container and home directory.')
 parser.add_argument('-hd', '--hidden_dim',
                     help='Set hidden dimension.')
+parser.add_argument('-ws', '--window_sizes',
+                    nargs='+',
+                    help='Set window sizes for the 3 conv layers in CNN model (e.g., -ws 3 4 5)')
 parser.add_argument('-ga', '--gamma_att',
                     help='Set gamma for max masked attention.')
 parser.add_argument('-al', '--alignment',
@@ -539,6 +548,7 @@ def main():
                                        multihead=args.multihead,
                                        num_heads=args.num_heads,
                                        hidden_dim=args.hidden_dim,
+                                       window_sizes=args.window_sizes,
                                        gamma=args.gamma_att,
                                        alignment=args.alignment)
 
