@@ -18,7 +18,6 @@ import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.multihead_attention import transpose_qkv
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class TargetAttention(nn.Module):
@@ -72,10 +71,9 @@ class TargetAttention(nn.Module):
         self.V.bias.data.fill_(0.01)
 
         # Initialze query embedding matrix
-        self.Q_mat = nn.Linear(in_features=self._latent_doc_dim,
-                               out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q_mat.weight)
-        self.Q = self.Q_mat.weight.clone()
+        self.Q = nn.Linear(in_features=self._latent_doc_dim,
+                           out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q.weight)
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -96,7 +94,7 @@ class TargetAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, H: torch.Tensor, Q: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
@@ -104,6 +102,8 @@ class TargetAttention(nn.Module):
         ----------
         H : torch.Tensor
             Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
+        Q : torch.Tensor
+            Query matrix
 
         Returns
         -------
@@ -117,20 +117,16 @@ class TargetAttention(nn.Module):
         """
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q = self.Q.to(device)
-        print(f'K.device: {K.device}')
-        print(f'V.device: {V.device}')
-        print(f'Q.device: {Q.device}')
 
         if self._multihead:
-            Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
+            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
             if self._scale:
-                E = torch.bmm(Q, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = torch.bmm(self.Q.weight, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = torch.bmm(Q, K.permute(0, 2, 1))
+                E = torch.bmm(self.Q.weight, K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
             C = torch.bmm(A, V)
         else:
@@ -138,9 +134,9 @@ class TargetAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             if self._scale:
-                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = self.Q.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = Q.matmul(K.permute(0, 2, 1))
+                E = self.Q.weight.matmul(K.permute(0, 2, 1))
             print(f'E.device: {E.device}')
 
             # Compute attention weights matrix A using a distribution function g (here softmax)
