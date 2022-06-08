@@ -34,7 +34,7 @@ from tools.training import train, scoring
 from models.CNN import CNN
 from models.RNN import RNN
 from models.Transformers import TransformerModel
-
+from attention_modules.alignment_attention import AlignmentAttention
 # get root path
 try:
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -308,6 +308,17 @@ class ExperimentSuite:
         model.to(device=device)
         model = torch.nn.DataParallel(model)
 
+        if alignment:
+            alignment_model = AlignmentAttention(
+                latent_doc_dim=np.sum(model_args['model_kwargs']['n_filters']) if model_args['model'] == 'CNN' else
+                model_args[
+                    'hidden_size'],
+                dim=256,
+                nav_hidden=512,
+                rho=0.5)
+        else:
+            alignment_model = None
+
         # Set up optimizer
         if optim == 'Adam':
             optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
@@ -316,12 +327,14 @@ class ExperimentSuite:
 
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
+              device=device,
               optimizer=optimizer,
               train_loader=train_loader,
               transformer=self._transformer,
               val_loader=val_loader,
               class_weights=None,
-              save_name=save_name)
+              save_name=save_name,
+              alignment_model=alignment_model)
 
         # Test the best model - load it
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))

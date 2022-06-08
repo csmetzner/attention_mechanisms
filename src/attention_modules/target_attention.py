@@ -54,21 +54,7 @@ class TargetAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.K_alignment = None
         self.Q_alignment = None
-
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
 
         # Initialze query embedding matrix
         self.Q = nn.Linear(in_features=self._latent_doc_dim,
@@ -94,16 +80,18 @@ class TargetAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor, Q: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
         Parameters
         ----------
-        H : torch.Tensor
-            Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
+        K : torch.Tensor
+            Key matrix with shape [batch_size, embedding_dim, sequence_length]
+        V : torch.Tensor
+            Value matrix with shape [batch_size, embedding_dim, sequence_length]
         Q : torch.Tensor
-            Query matrix
+            Query matrix with shape [batch_size, embedding_dim, number_queries]
 
         Returns
         -------
@@ -115,9 +103,6 @@ class TargetAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-
         if self._multihead:
             Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)

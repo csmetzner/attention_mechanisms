@@ -19,10 +19,10 @@ import numpy as np
 
 # Custom libraries
 from .performance_metrics import get_scores
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 # Select GPU as hardware if available otherwise use available CPU
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SEED = 42
 random.seed(SEED)
 torch.manual_seed(SEED)
@@ -31,12 +31,14 @@ np.random.seed(SEED)
 
 def train(model: nn.Module,
           train_kwargs: Dict[str, Union[bool, int]],
+          device,
           optimizer,
           train_loader,
           transformer: bool,
           val_loader=None,
           class_weights: np.array = None,
-          save_name: str = None):
+          save_name: str = None,
+          alignment_model = None):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
@@ -116,18 +118,21 @@ def train(model: nn.Module,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
+            if alignment:
+                alignment_model._optim_critic.zero_grad()
+                alignment_model._optim_navigator.zero_grad()
+                alignment_loss = alignment_model(K=model.module.attention_layer.attention_layer.K_alignment,
+                                                 Q=model.module.attention_layer.attention_layer.Q_alignment)
+                loss = loss + alignment_loss
+                alignment_loss.backward(retain_graph=True)
+                alignment_model._optim_critic.step()
+                alignment_model._optim_navigator.step()
 
-            print(f'X.device in train script: {X.device}')
-            print(f'Y.device in train script: {Y.device}')
-            print(f'logits.device in train script: {logits.device}')
 
             y_trues.extend(Y.detach().cpu().numpy())
             y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
             output = loss_fct(logits, Y)
             loss = loss + output
-            print(f'output.device in train script: {output.device}')
-
-            print(f'loss.device in train script: {loss.device}')
 
             # Perform backpropagation
             loss.backward()

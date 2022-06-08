@@ -197,9 +197,6 @@ class CNN(nn.Module):
             logits = self.output_layer(C).sum(dim=1)
         else:
             logits = self.output_layer(C).sum(dim=2)  # Consider .sum(dim=1) - depends on number of attention vectors
-
-        print(f'logits.device in CNN model script: {logits.device}')
-
         if return_doc_embeds:
             return logits, H
         return logits

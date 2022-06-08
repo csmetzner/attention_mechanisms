@@ -108,6 +108,20 @@ class Attention(nn.Module):
         self._code2cat_map = code2cat_map
         self._gamma = gamma
 
+        # Init key-value pair matrices
+        # Initialize key-value pair matrices
+        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
+                           out_channels=self._latent_doc_dim,
+                           kernel_size=1)
+        nn.init.xavier_uniform_(self.K.weight)
+        self.K.bias.data.fill_(0.01)
+
+        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
+                           out_channels=self._latent_doc_dim,
+                           kernel_size=1)
+        nn.init.xavier_uniform_(self.V.weight)
+        self.V.bias.data.fill_(0.01)
+
         # Init multi-head attention output layer to concatenate output of all attention heads
         if self._multihead:
             self.MH_output = nn.Linear(in_features=self._latent_doc_dim,
@@ -121,6 +135,7 @@ class Attention(nn.Module):
                                                    multihead=self._multihead,
                                                    num_heads=self._num_heads)
             self.Q = self.attention_layer.Q.weight.clone()
+
         elif self._att_module == 'label':
             self.attention_layer = LabelAttention(num_labels=self._num_labels,
                                                   embedding_dim=self._embedding_dim,
@@ -228,12 +243,17 @@ class Attention(nn.Module):
             Attention weight matrix
 
         """
-        # define Q
+        K = self.K(H).permute(0, 2, 1)
+        V = self.V(H).permute(0, 2, 1)
+
+        if self._att_module == 'target':
+            Q = self.Q.to(device)
+
         if self._multihead:
             C, A = self.attention_layer(H=H)
             C = transpose_output(X=C, num_heads=self._num_heads)
             A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
         else:
-            C, A = self.attention_layer(H=H)
+            C, A = self.attention_layer(K=K, V=V, Q=Q)
         return C, A
