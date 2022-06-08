@@ -307,8 +307,6 @@ class ExperimentSuite:
         # Set up parallel computing if possible
         model.to(device=device)
         model = torch.nn.DataParallel(model)
-        print(next(model.parameters()).is_cuda)
-
 
         # Set up optimizer
         if optim == 'Adam':

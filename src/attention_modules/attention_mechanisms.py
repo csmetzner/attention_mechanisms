@@ -37,6 +37,8 @@ from attention_modules.hierarchical_attention import HierarchicalContextAttentio
 from attention_modules.context_attention import ContextAttention, ContextAttentionDiffInput
 from attention_modules.masked_attention import MaxMaskedAttention, RankedMaskedAttention
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 class Attention(nn.Module):
     """
@@ -117,6 +119,7 @@ class Attention(nn.Module):
                                                    scale=self._scale,
                                                    multihead=self._multihead,
                                                    num_heads=self._num_heads)
+            self.Q = self.attention_layer.Q.weight.clone()
         elif self._att_module == 'label':
             self.attention_layer = LabelAttention(num_labels=self._num_labels,
                                                   embedding_dim=self._embedding_dim,
@@ -207,7 +210,7 @@ class Attention(nn.Module):
                                                          multihead=self._multihead,
                                                          num_heads=self._num_heads)
 
-    def forward(self, H: torch.Tensor, alignment: bool = None) -> Tuple[torch.Tensor]:
+    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of general attention mechanism class.
 
@@ -224,6 +227,10 @@ class Attention(nn.Module):
             Attention weight matrix
 
         """
+        # define Q
+        if self._att_module == 'target':
+            Q = self.Q.to(device)
+
         if self._multihead:
             C, A = self.attention_layer(H=H)
             C = transpose_output(X=C, num_heads=self._num_heads)
@@ -231,5 +238,5 @@ class Attention(nn.Module):
             C = self.MH_output(C)
         else:
             print(f'H.device: {H.device}')
-            C, A = self.attention_layer(H=H)
+            C, A = self.attention_layer(H=H, Q=Q)
         return C, A
