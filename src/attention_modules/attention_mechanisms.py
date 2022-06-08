@@ -38,6 +38,7 @@ from attention_modules.context_attention import ContextAttention, ContextAttenti
 from attention_modules.masked_attention import MaxMaskedAttention, RankedMaskedAttention
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f'The experiment uses the following device: {device}', flush=True)
 
 
 class Attention(nn.Module):
