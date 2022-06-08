@@ -104,7 +104,7 @@ class TargetAttention(nn.Module):
 
         """
         if self._multihead:
-            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
@@ -119,9 +119,9 @@ class TargetAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             if self._scale:
-                E = self.Q.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = self.Q.weight.matmul(K.permute(0, 2, 1))
+                E = Q.matmul(K.permute(0, 2, 1))
 
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
