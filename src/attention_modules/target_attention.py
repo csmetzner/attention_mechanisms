@@ -94,7 +94,7 @@ class TargetAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor, Q: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
