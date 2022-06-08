@@ -116,6 +116,11 @@ def train(model: nn.Module,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
+
+            print(f'X.device; {X.device}')
+            print(f'Y.device: {Y.device}')
+            print(f'logits.device: {logits.device}')
+
             if alignment:
                 alignment_model._optim_critic.zero_grad()
                 alignment_model._optim_navigator.zero_grad()
@@ -129,6 +134,7 @@ def train(model: nn.Module,
             y_trues.extend(Y.detach().cpu().numpy())
             y_preds.extend(logits.detach().cpu().numpy())  # how do you have to compute these things for multi-class case
             loss += loss_fct(logits, Y)
+            print(f'loss.device: {loss.device}')
 
             # Perform backpropagation
             optimizer.zero_grad()
@@ -232,6 +238,11 @@ def scoring(model,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
+            print(f'X.device; {X.device}')
+            print(f'Y.device: {Y.device}')
+            print(f'Logits.device: {logits.device}')
+            #print(f'loss.device: {loss.device}')
+
 
             # Extend arrays with ground-truth values (Y), prediction probabilities (probs), and predictions (logits)
             y_trues.extend(Y.detach().cpu().numpy())
@@ -248,6 +259,7 @@ def scoring(model,
 
             # Compute the loss for current batch
             loss += loss_fct(logits, Y)
+            print(f'loss.device: {loss.device}')
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
             #if b == 1:
