@@ -229,15 +229,11 @@ class Attention(nn.Module):
 
         """
         # define Q
-        if self._att_module == 'target':
-            Q = self.Q.to(device)
-
         if self._multihead:
             C, A = self.attention_layer(H=H)
             C = transpose_output(X=C, num_heads=self._num_heads)
             A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
         else:
-            print(f'H.device: {H.device}')
-            C, A = self.attention_layer(H=H, Q=Q)
+            C, A = self.attention_layer(H=H)
         return C, A
