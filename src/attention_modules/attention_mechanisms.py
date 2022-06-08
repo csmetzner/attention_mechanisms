@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class Attention(nn.Module):
@@ -199,6 +200,7 @@ class Attention(nn.Module):
         # 1b. Get query matrix (Q)
         if self._att_module == 'target':
             Q = self.Q
+            Q = Q.to(device)
         elif self._att_module == 'label':
             Q = self.attention_layer._mapping_layer(self.Q.permute(1, 0)).permute(1, 0)
         elif self._att_module == 'self':
