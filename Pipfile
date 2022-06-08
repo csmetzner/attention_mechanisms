@@ -14,8 +14,16 @@ tqdm = "*"
 xlsxwriter = "*"
 openpyxl = "*"
 transformers = "*"
+torchtext = "*"
+torch = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.8"
+
+[scripts]
+install-sever = "pip install -r requirements-server.txt -f https://download.pytorch.org/whl/torch_stable.html"
+
+[pipenv]
+allow_prereleases = true
