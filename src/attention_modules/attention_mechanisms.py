@@ -76,7 +76,8 @@ class Attention(nn.Module):
                  num_cats: int = None,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None):
+                 code2cat_map: List[int] = None,
+                 gamma: float = None):
 
         super().__init__()
         self._num_labels = num_labels
@@ -90,6 +91,7 @@ class Attention(nn.Module):
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
+        self._gamma = gamma
 
         # Check multihead variables
         if self._multihead:
