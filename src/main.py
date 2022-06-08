@@ -323,8 +323,7 @@ class ExperimentSuite:
               transformer=self._transformer,
               val_loader=val_loader,
               class_weights=None,
-              save_name=save_name,
-              alignment_model=alignment_model)
+              save_name=save_name)
 
         # Test the best model - load it
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
