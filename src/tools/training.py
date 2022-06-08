@@ -36,8 +36,7 @@ def train(model: nn.Module,
           transformer: bool,
           val_loader=None,
           class_weights: np.array = None,
-          save_name: str = None,
-          alignment_model: nn.Module = None):
+          save_name: str = None):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
@@ -120,16 +119,6 @@ def train(model: nn.Module,
             print(f'X.device; {X.device}')
             print(f'Y.device: {Y.device}')
             print(f'logits.device: {logits.device}')
-
-            if alignment:
-                alignment_model._optim_critic.zero_grad()
-                alignment_model._optim_navigator.zero_grad()
-                alignment_loss = alignment_model(K=model.module.attention_layer.attention_layer.K_alignment,
-                                                 Q=model.module.attention_layer.attention_layer.Q_alignment)
-                loss = loss + alignment_loss
-                alignment_loss.backward(retain_graph=True)
-                alignment_model._optim_critic.step()
-                alignment_model._optim_navigator.step()
 
             y_trues.extend(Y.detach().cpu().numpy())
             y_preds.extend(logits.detach().cpu().numpy())  # how do you have to compute these things for multi-class case
