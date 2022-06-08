@@ -147,7 +147,4 @@ class TargetAttention(nn.Module):
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
 
-        self.K_alignment = K
-        self.Q_alignment = Q
-
         return C, A
