@@ -94,7 +94,7 @@ class TargetAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor, Q: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
@@ -124,9 +124,9 @@ class TargetAttention(nn.Module):
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
             if self._scale:
-                E = torch.bmm(self.Q.weight, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = torch.bmm(Q, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = torch.bmm(self.Q.weight, K.permute(0, 2, 1))
+                E = torch.bmm(Q, K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
             C = torch.bmm(A, V)
         else:
