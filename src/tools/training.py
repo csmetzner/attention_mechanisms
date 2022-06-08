@@ -99,6 +99,7 @@ def train(model: nn.Module,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             # set gradients to zero for every new batch
+            optimizer.zero_grad()
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 token_type_ids = batch['token_type_ids'].to(device)
@@ -116,17 +117,19 @@ def train(model: nn.Module,
                 logits = model(X)
             loss = 0
 
-            print(f'X.device; {X.device}')
-            print(f'Y.device: {Y.device}')
-            print(f'logits.device: {logits.device}')
+            print(f'X.device in train script: {X.device}')
+            print(f'Y.device in train script: {Y.device}')
+            print(f'logits.device in train script: {logits.device}')
 
             y_trues.extend(Y.detach().cpu().numpy())
-            y_preds.extend(logits.detach().cpu().numpy())  # how do you have to compute these things for multi-class case
-            loss += loss_fct(logits, Y)
-            print(f'loss.device: {loss.device}')
+            y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
+            output = loss_fct(logits, Y)
+            loss = loss + output
+            print(f'output.device in train script: {output.device}')
+
+            print(f'loss.device in train script: {loss.device}')
 
             # Perform backpropagation
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 

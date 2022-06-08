@@ -230,8 +230,6 @@ class Attention(nn.Module):
             A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
         else:
+            print(f'H.device: {H.device}')
             C, A = self.attention_layer(H=H)
         return C, A
-
-    def get_matrices(self, K, Q):
-        return K, Q

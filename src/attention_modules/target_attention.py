@@ -118,6 +118,9 @@ class TargetAttention(nn.Module):
         K = F.elu(self.K(H)).permute(0, 2, 1)
         V = F.elu(self.V(H)).permute(0, 2, 1)
         Q = self.Q.to(device)
+        print(f'K.device: {K.device}')
+        print(f'V.device: {V.device}')
+        print(f'Q.device: {Q.device}')
 
         if self._multihead:
             Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
@@ -138,13 +141,17 @@ class TargetAttention(nn.Module):
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
                 E = Q.matmul(K.permute(0, 2, 1))
+            print(f'E.device: {E.device}')
+
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
             # A ∈ R^nxl, where n: number of labels and l: sequence length
             A = F.softmax(input=E, dim=2)
+            print(f'A.device: {A.device}')
+
             # Compute context vector matrix C - dot product of attention matrix A and value embedding matrix V(H): QV.T
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-
+            print(f'C.device: {C.device}')
         return C, A
