@@ -157,7 +157,6 @@ def train(model: nn.Module,
 def scoring(model,
             data_loader,
             multilabel: bool,
-            device,
             transformer: bool = False,
             class_weights: np.array = None) -> Dict[str, Union[float, np.array]]:
 
