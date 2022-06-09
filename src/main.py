@@ -218,7 +218,7 @@ class ExperimentSuite:
             if self._model == 'CNN':
                 self._model_args['model_kwargs']['window_sizes'] = list(map(int, window_sizes))
             else:
-                raise ValueError('Selected model does not have window_sizes as model kwargs')
+                raise ValueError('Selected model has no window_sizes as model kwargs')
 
         return self._model_args
 
@@ -462,7 +462,7 @@ parser.add_argument('-d', '--dataset',
 parser.add_argument('-am', '--attention_module',
                     required=True,
                     type=str,
-                    choices=['target', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label',
+                    choices=['target_clone', 'target_weights', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label',
                              'hierarchical_context', 'hierarchical_double_attention',
                              'context', 'context_diff',
                              'max_masked', 'rank_masked'],
