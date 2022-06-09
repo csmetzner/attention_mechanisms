@@ -343,6 +343,7 @@ class ExperimentSuite:
         print('Testing trained model')
         test_scores = scoring(model=model,
                               data_loader=test_loader,
+                              device=device,
                               multilabel=True,
                               transformer=self._transformer,
                               class_weights=None)

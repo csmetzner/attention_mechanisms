@@ -125,7 +125,9 @@ def train(model: nn.Module,
             #    alignment_loss.backward(retain_graph=True)
             #    alignment_model._optim_critic.step()
             #    alignment_model._optim_navigator.step()
-
+            print(f'X.device; {X.device}')
+            print(f'Y.device: {Y.device}')
+            print(f'Logits.device: {logits.device}')
 
             y_trues.extend(Y.detach().cpu().numpy())
             y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
@@ -171,6 +173,7 @@ def train(model: nn.Module,
 def scoring(model,
             data_loader,
             multilabel: bool,
+            device,
             transformer: bool = False,
             class_weights: np.array = None) -> Dict[str, Union[float, np.array]]:
 
