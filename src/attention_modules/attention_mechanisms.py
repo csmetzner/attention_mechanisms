@@ -130,6 +130,7 @@ class Attention(nn.Module):
                                                         scale=self._scale,
                                                         multihead=self._multihead,
                                                         num_heads=self._num_heads)
+            self.Q = self.attention_layer.Q.weight.clone()
 
         elif self._att_module == 'target_weights':
             self.attention_layer = TargetAttentionWeights(num_labels=self._num_labels,
@@ -138,6 +139,7 @@ class Attention(nn.Module):
                                                           scale=self._scale,
                                                           multihead=self._multihead,
                                                           num_heads=self._num_heads)
+            self.Q = self.attention_layer.Q.weight
 
         elif self._att_module == 'label':
             self.attention_layer = LabelAttention(num_labels=self._num_labels,
@@ -248,6 +250,7 @@ class Attention(nn.Module):
         """
         K = self.K(H).permute(0, 2, 1)
         V = self.V(H).permute(0, 2, 1)
+        Q = self.Q.to(device)
 
         if self._multihead:
             C, A = self.attention_layer(K=K, V=V)
@@ -255,5 +258,5 @@ class Attention(nn.Module):
             A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
         else:
-            C, A = self.attention_layer(K=K, V=V)
+            C, A = self.attention_layer(K=K, V=V, Q=Q)
         return C, A

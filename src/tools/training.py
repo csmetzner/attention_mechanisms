@@ -19,8 +19,6 @@ import numpy as np
 
 # Custom libraries
 from .performance_metrics import get_scores
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
 # Select GPU as hardware if available otherwise use available CPU
 SEED = 42
@@ -118,22 +116,23 @@ def train(model: nn.Module,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
-            if alignment:
-                alignment_model._optim_critic.zero_grad()
-                alignment_model._optim_navigator.zero_grad()
-                alignment_loss = alignment_model(K=model.module.attention_layer.attention_layer.K_alignment,
-                                                 Q=model.module.attention_layer.attention_layer.Q_alignment)
-                loss = loss + alignment_loss
-                alignment_loss.backward(retain_graph=True)
-                alignment_model._optim_critic.step()
-                alignment_model._optim_navigator.step()
+            #if alignment:
+            #    alignment_model._optim_critic.zero_grad()
+            #    alignment_model._optim_navigator.zero_grad()
+            #    alignment_loss = alignment_model(K=model.module.attention_layer.attention_layer.K_alignment,
+            #                                    Q=model.module.attention_layer.attention_layer.Q_alignment)
+            #    loss = loss + alignment_loss
+            #    alignment_loss.backward(retain_graph=True)
+            #    alignment_model._optim_critic.step()
+            #    alignment_model._optim_navigator.step()
 
 
             y_trues.extend(Y.detach().cpu().numpy())
             y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
             output = loss_fct(logits, Y)
             loss = loss + output
-
+            print(f'loss: {loss.device}')
+            print(f'output: {output.device}')
             # Perform backpropagation
             loss.backward()
             optimizer.step()
