@@ -105,8 +105,7 @@ class TargetAttentionClone(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        print(self.Q.weight)
-        print(self.Q_mat)
+        self.Q_mat = self.Q_mat.to(device)
         if self._multihead:
             Q = torch.unsqueeze(self.Q_mat, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
@@ -222,7 +221,6 @@ class TargetAttentionWeights(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        print(self.Q.weight)
         if self._multihead:
             Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
