@@ -34,7 +34,7 @@ from attention_modules.hierarchical_attention import HierarchicalContextAttentio
 from attention_modules.context_attention import ContextAttention, ContextAttentionDiffInput
 from attention_modules.masked_attention import MaxMaskedAttention, RankedMaskedAttention
 
-device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class Attention(nn.Module):

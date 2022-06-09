@@ -18,7 +18,7 @@ import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.multihead_attention import transpose_qkv
-device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 class TargetAttentionClone(nn.Module):

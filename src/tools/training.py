@@ -25,6 +25,7 @@ SEED = 42
 random.seed(SEED)
 torch.manual_seed(SEED)
 np.random.seed(SEED)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def train(model: nn.Module,
