@@ -128,7 +128,7 @@ class ExperimentSuite:
         path_data = os.path.join(root, 'data', 'processed')
 
         # Load pre-defined config file for current model
-        #print(os.path.join(path_config, f'{model}_config.yml'))
+        # print(os.path.join(path_config, f'{model}_config.yml'))
         with open(os.path.join(path_config, f'{model}_config.yml'), 'r') as f:
             self._model_args = yaml.safe_load(stream=f)
 
@@ -233,7 +233,7 @@ class ExperimentSuite:
         batch_size = model_args['train_kwargs']['batch_size']
         optim = model_args['train_kwargs']['optimizer']
         lr = model_args['train_kwargs']['lr']
-        alignment = model_args['train_kwargs']['alignment']
+        # alignment = model_args['train_kwargs']['alignment']
 
         model_name = f"{self._model}" \
                      f"_{self._dataset}" \
@@ -305,19 +305,9 @@ class ExperimentSuite:
             raise Exception('Invalid model type!')
 
         # Set up parallel computing if possible
-        model.to(device=device)
-        model = torch.nn.DataParallel(model)
-
-        if alignment:
-            alignment_model = AlignmentAttention(
-                latent_doc_dim=np.sum(model_args['model_kwargs']['n_filters']) if model_args['model'] == 'CNN' else
-                model_args[
-                    'hidden_size'],
-                dim=256,
-                nav_hidden=512,
-                rho=0.5)
-        else:
-            alignment_model = None
+        model.to(device)
+        if torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(model)
 
         # Set up optimizer
         if optim == 'Adam':
@@ -327,23 +317,21 @@ class ExperimentSuite:
 
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
-              device=device,
               optimizer=optimizer,
               train_loader=train_loader,
               transformer=self._transformer,
               val_loader=val_loader,
               class_weights=None,
-              save_name=save_name,
-              alignment_model=alignment_model)
+              save_name=save_name)
 
         # Test the best model - load it
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
+        model.to(device)
 
         # Save the test_scores to csv file
         print('Testing trained model')
         test_scores = scoring(model=model,
                               data_loader=test_loader,
-                              device=device,
                               multilabel=True,
                               transformer=self._transformer,
                               class_weights=None)

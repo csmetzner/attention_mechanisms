@@ -30,14 +30,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def train(model: nn.Module,
           train_kwargs: Dict[str, Union[bool, int]],
-          device,
           optimizer,
           train_loader,
-          transformer: bool,
+          transformer: bool = False,
           val_loader=None,
           class_weights: np.array = None,
-          save_name: str = None,
-          alignment_model = None):
+          save_name: str = None):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
@@ -67,7 +65,7 @@ def train(model: nn.Module,
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
     multilabel = train_kwargs['multilabel']
-    alignment = train_kwargs['alignment']
+    #alignment = train_kwargs['alignment']
 
     # Set up loss function
     class_weights_tensor = None
@@ -90,7 +88,7 @@ def train(model: nn.Module,
     for epoch in range(epochs):
         print(f'Epoch: {epoch + 1}', flush=True)
         # Enable training of layers with trainable parameters
-        model.train(True)
+        model.train()
 
         # Init arrays to keep track of ground-truth labels
         y_trues = []
@@ -117,30 +115,15 @@ def train(model: nn.Module,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
-            #if alignment:
-            #    alignment_model._optim_critic.zero_grad()
-            #    alignment_model._optim_navigator.zero_grad()
-            #    alignment_loss = alignment_model(K=model.module.attention_layer.attention_layer.K_alignment,
-            #                                    Q=model.module.attention_layer.attention_layer.Q_alignment)
-            #    loss = loss + alignment_loss
-            #    alignment_loss.backward(retain_graph=True)
-            #    alignment_model._optim_critic.step()
-            #    alignment_model._optim_navigator.step()
-            print(f'X.device; {X.device}')
-            print(f'Y.device: {Y.device}')
-            print(f'Logits.device: {logits.device}')
-
-            y_trues.extend(Y.detach().cpu().numpy())
-            y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
-            output = loss_fct(logits, Y)
-            loss = loss + output
-            print(f'loss: {loss.device}')
-            print(f'output: {output.device}')
-            # Perform backpropagation
+            loss += loss_fct(logits, Y)
             loss.backward()
             optimizer.step()
-
             l_cpu = loss.cpu().detach().numpy()
+
+            # y_trues.extend(Y.detach().cpu().numpy())
+            # y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
+            # Perform backpropagation
+
             #if b == 1:
             #   break
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
@@ -238,11 +221,6 @@ def scoring(model,
                 Y = batch['Y'].to(device)
                 logits = model(X)
             loss = 0
-            print(f'X.device; {X.device}')
-            print(f'Y.device: {Y.device}')
-            print(f'Logits.device: {logits.device}')
-            #print(f'loss.device: {loss.device}')
-
 
             # Extend arrays with ground-truth values (Y), prediction probabilities (probs), and predictions (logits)
             y_trues.extend(Y.detach().cpu().numpy())
