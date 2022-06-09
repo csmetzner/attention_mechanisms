@@ -18,7 +18,8 @@ import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.multihead_attention import transpose_qkv
-
+device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
+print(device)
 
 class TargetAttentionClone(nn.Module):
     """
@@ -127,16 +128,22 @@ class TargetAttentionClone(nn.Module):
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
                 E = Q.matmul(K.permute(0, 2, 1))
+            print(f'E.device: {E.device}')
+
 
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
             # A ∈ R^nxl, where n: number of labels and l: sequence length
             A = F.softmax(input=E, dim=2)
+            print(f'A.device: {A.device}')
+
 
             # Compute context vector matrix C - dot product of attention matrix A and value embedding matrix V(H): QV.T
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
+            print(f'C.device: {C.device}')
+
         return C, A
 
 

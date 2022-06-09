@@ -34,7 +34,7 @@ from attention_modules.hierarchical_attention import HierarchicalContextAttentio
 from attention_modules.context_attention import ContextAttention, ContextAttentionDiffInput
 from attention_modules.masked_attention import MaxMaskedAttention, RankedMaskedAttention
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
 
 
 class Attention(nn.Module):
@@ -252,6 +252,11 @@ class Attention(nn.Module):
         V = self.V(H).permute(0, 2, 1)
         Q = self.Q.to(device)
 
+        print('Devices in forward pass of attention class')
+        print(f'K.device: {K.device}')
+        print(f'V.device: {V.device}')
+        print(f'Q.device: {Q.device}')
+
         if self._multihead:
             C, A = self.attention_layer(K=K, V=V)
             C = transpose_output(X=C, num_heads=self._num_heads)
@@ -259,4 +264,7 @@ class Attention(nn.Module):
             C = self.MH_output(C)
         else:
             C, A = self.attention_layer(K=K, V=V, Q=Q)
+            print(f'C.device: {C.device}')
+            print(f'A.device: {A.device}')
+
         return C, A
