@@ -236,7 +236,6 @@ def scoring(model,
 
             # Compute the loss for current batch
             loss += loss_fct(logits, Y)
-            print(f'loss.device: {loss.device}')
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
             #if b == 1:
