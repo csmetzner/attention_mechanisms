@@ -67,34 +67,19 @@ class HierarchicalTargetAttention(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
 
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
-
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_cats)
-        nn.init.xavier_uniform_(self.Q1_mat.weight)
-        self.Q1 = self.Q1_mat.weight.clone()
-        #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1.weight)
+
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2_mat.weight)
-        self.Q2 = self.Q2_mat.weight.clone()
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2.weight)
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -120,7 +105,7 @@ class HierarchicalTargetAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
 
         """
         Forward pass of hierarchical target attention mechanism.
@@ -130,9 +115,10 @@ class HierarchicalTargetAttention(nn.Module):
 
         Parameters
         ----------
-        H : torch.Tensor
-            Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
-
+        K : torch.Tensor
+            Key matrix with shape [batch_size, embedding_dim, sequence_length]
+        V : torch.Tensor
+            Value matrix with shape [batch_size, embedding_dim, sequence_length]
         Returns
         -------
         C : torch.Tensor
@@ -143,14 +129,9 @@ class HierarchicalTargetAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q1 = self.Q1.to(device)
-        Q2 = self.Q2.to(device)
-
         if self._multihead:
-            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -174,11 +155,11 @@ class HierarchicalTargetAttention(nn.Module):
             C2 = torch.bmm(A2, V)
 
         else:
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = Q1.matmul(K.permute(0, 2, 1))
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
 
             A1 = F.softmax(input=E1, dim=-1)
             C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
@@ -244,34 +225,18 @@ class HierarchicalContextAttention(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
 
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
-
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_cats)
-        nn.init.xavier_uniform_(self.Q1_mat.weight)
-        self.Q1 = self.Q1_mat.weight.clone()
-        #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1.weight)
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2_mat.weight)
-        self.Q2 = self.Q2_mat.weight.clone()
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2.weight)
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -297,7 +262,7 @@ class HierarchicalContextAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
 
         """
         Forward pass of hierarchical target attention mechanism.
@@ -307,8 +272,10 @@ class HierarchicalContextAttention(nn.Module):
 
         Parameters
         ----------
-        H : torch.Tensor
-            Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
+        K : torch.Tensor
+            Key matrix with shape [batch_size, embedding_dim, sequence_length]
+        V : torch.Tensor
+            Value matrix with shape [batch_size, embedding_dim, sequence_length]
 
         Returns
         -------
@@ -320,14 +287,9 @@ class HierarchicalContextAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q1 = self.Q1.to(device)
-        Q2 = self.Q2.to(device)
-
         if self._multihead:
-            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -351,20 +313,20 @@ class HierarchicalContextAttention(nn.Module):
                 C2[:, i, :] += C1[:, code2cat_idx, :]
 
         else:
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = Q1.matmul(K.permute(0, 2, 1))
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
 
             A1 = F.softmax(input=E1, dim=-1)
             C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
             # Map context vector of the ith category to each code belong to the same category.
 
             if self._scale:
-                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = self.Q2.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E2 = Q2.matmul(K.permute(0, 2, 1))
+                E2 = self.Q2.weight.matmul(K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
 
             # Compute attention weighted document embeddings - context matrix
@@ -421,33 +383,18 @@ class HierarchicalDoubleAttention(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
 
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
-
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_cats)
-        nn.init.xavier_uniform_(self.Q1_mat.weight)
-        self.Q1 = self.Q1_mat.weight.clone()
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_cats)
+        nn.init.xavier_uniform_(self.Q1.weight)
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2_mat.weight)
-        self.Q2 = self.Q2_mat.weight.clone()
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2.weight)
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -473,7 +420,7 @@ class HierarchicalDoubleAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
 
         """
         Forward pass of hierarchical target attention mechanism.
@@ -483,9 +430,10 @@ class HierarchicalDoubleAttention(nn.Module):
 
         Parameters
         ----------
-        H : torch.Tensor
-            Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
-
+        K : torch.Tensor
+            Key matrix with shape [batch_size, embedding_dim, sequence_length]
+        V : torch.Tensor
+            Value matrix with shape [batch_size, embedding_dim, sequence_length]
         Returns
         -------
         C : torch.Tensor
@@ -496,14 +444,9 @@ class HierarchicalDoubleAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q1 = self.Q1.to(device)
-        Q2 = self.Q2.to(device)
-
         if self._multihead:
-            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -528,18 +471,18 @@ class HierarchicalDoubleAttention(nn.Module):
             C2 = torch.bmm(A2, V)
 
         else:
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = Q1.matmul(K.permute(0, 2, 1))
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
 
             A1 = F.softmax(input=E1, dim=-1)
 
             if self._scale:
-                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = self.Q2.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E2 = Q2.matmul(K.permute(0, 2, 1))
+                E2 = self.Q2.weight.matmul(K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
 
             for i, code2cat_idx in enumerate(self._code2cat_map):
@@ -600,33 +543,18 @@ class HierarchicalLabelAttention(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
 
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
-
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
-        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_cats)
-        self.Q1_mat.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
-        #        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
-        self.Q1 = self.Q1_mat.weight.clone()
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_cats)
+        self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
+
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
-        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_labels)
-        self.Q2_mat.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
-        self.Q2 = self.Q2_mat.weight.clone()
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        self.Q2.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
 
         # Conv1D layer to avoid dimensionality mismatch
         self._mapping_layer = nn.Conv1d(in_channels=self._embedding_dim,
@@ -657,7 +585,7 @@ class HierarchicalLabelAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
 
         """
         Forward pass of hierarchical target attention mechanism.
@@ -667,8 +595,10 @@ class HierarchicalLabelAttention(nn.Module):
 
         Parameters
         ----------
-        H : torch.Tensor
-            Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
+        K : torch.Tensor
+            Key matrix with shape [batch_size, embedding_dim, sequence_length]
+        V : torch.Tensor
+            Value matrix with shape [batch_size, embedding_dim, sequence_length]
 
         Returns
         -------
@@ -680,10 +610,8 @@ class HierarchicalLabelAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q1 = self._mapping_layer(self.Q1.permute(1, 0)).permute(1, 0).to(device)
-        Q2 = self._mapping_layer(self.Q2.permute(1, 0)).permute(1, 0).to(device)
+        Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
+        Q2 = self._mapping_layer(self.Q2.weight.permute(1, 0)).permute(1, 0)
 
         if self._multihead:
             Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)

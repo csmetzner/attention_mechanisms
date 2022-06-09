@@ -57,32 +57,17 @@ class AlternateAttention(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
 
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
-
         # Init target weights also considered to be the query embedding matrix Q ∈ R^nxd
         # where n: n_labels and d: output feature of latent representation of documents using CNN or LSTM
         # First alternating attention head - M
-        self.Q1_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q1_mat.weight)
-        self.Q1 = self.Q1_mat.weight.clone()
+        self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q1.weight)
 
         # Second alternating attention head - N
-        self.Q2_mat = nn.Linear(in_features=self._latent_doc_dim,
-                                out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q2_mat.weight)
-        self.Q2 = self.Q2_mat.weight.clone()
+        self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
+                            out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q2.weight)
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -108,7 +93,7 @@ class AlternateAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
@@ -127,11 +112,6 @@ class AlternateAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q1 = self.Q1.to(device)
-        Q2 = self.Q2.to(device)
-
         # Compute energy scores for both alternating attention heads
         # Head 1: EM - dot product of query embedding matrix Q and key embedding matrix K: QxK.T
         # where em_i represents the energy score for i-th attention vector; every second value is set to 0
@@ -139,8 +119,8 @@ class AlternateAttention(nn.Module):
         # where en_i represents the energy score for i-th attention vector; every other second value is set to 0
         # E ∈ R^nxl, where n: dimension of attention vector and l: sequence length
         if self._multihead:
-            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -175,11 +155,11 @@ class AlternateAttention(nn.Module):
             C = torch.bmm(A, V)
         else:
             if self._scale:
-                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
-                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = self.Q2.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E1 = Q1.matmul(K.permute(0, 2, 1))
-                E2 = Q2.matmul(K.permute(0, 2, 1))
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
+                E2 = self.Q2.weight.matmul(K.permute(0, 2, 1))
 
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space

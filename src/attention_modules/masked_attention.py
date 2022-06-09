@@ -202,24 +202,10 @@ class RankedMaskedAttention(nn.Module):
         self._num_heads = num_heads
         self._gamma = gamma
 
-        # Initialize key-value pair matrices
-        self.K = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.K.weight)
-        self.K.bias.data.fill_(0.01)
-
-        self.V = nn.Conv1d(in_channels=self._latent_doc_dim,
-                           out_channels=self._latent_doc_dim,
-                           kernel_size=1)
-        nn.init.xavier_uniform_(self.V.weight)
-        self.V.bias.data.fill_(0.01)
-
         # Initialze query embedding matrix
-        self.Q_mat = nn.Linear(in_features=self._latent_doc_dim,
-                               out_features=self._num_labels)
-        nn.init.xavier_uniform_(self.Q_mat.weight)
-        self.Q = self.Q_mat.weight.clone()
+        self.Q = nn.Linear(in_features=self._latent_doc_dim,
+                           out_features=self._num_labels)
+        nn.init.xavier_uniform_(self.Q.weight)
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -240,14 +226,16 @@ class RankedMaskedAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
         Parameters
         ----------
-        H : torch.Tensor
-            Latent document representation - H ∈ R^lxd; where l: sequence length and d: latent document dimension
+        K : torch.Tensor
+            Key matrix with shape [batch_size, embedding_dim, sequence_length]
+        V : torch.Tensor
+            Value matrix with shape [batch_size, embedding_dim, sequence_length]
 
         Returns
         -------
@@ -259,12 +247,8 @@ class RankedMaskedAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        K = F.elu(self.K(H)).permute(0, 2, 1)
-        V = F.elu(self.V(H)).permute(0, 2, 1)
-        Q = self.Q.to(device)
-
         if self._multihead:
-            Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
+            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
@@ -285,9 +269,9 @@ class RankedMaskedAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             if self._scale:
-                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = self.Q.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = Q.matmul(K.permute(0, 2, 1))
+                E = self.Q.weight.matmul(K.permute(0, 2, 1))
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
             # A ∈ R^nxl, where n: number of labels and l: sequence length
