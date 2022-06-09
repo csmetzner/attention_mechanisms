@@ -158,11 +158,6 @@ class Attention(nn.Module):
         """
         K = self.K(H).permute(0, 2, 1)
         V = self.V(H).permute(0, 2, 1)
-
-        print('Devices in forward pass of attention class')
-        print(f'K.device: {K.device}')
-        print(f'V.device: {V.device}')
-
         if self._multihead:
             C, A = self.attention_layer(K=K, V=V)
             C = transpose_output(X=C, num_heads=self._num_heads)
@@ -170,7 +165,5 @@ class Attention(nn.Module):
             C = self.MH_output(C)
         else:
             C, A = self.attention_layer(K=K, V=V)
-            print(f'C.device: {C.device}')
-            print(f'A.device: {A.device}')
 
         return C, A
