@@ -61,6 +61,7 @@ class TargetAttentionClone(nn.Module):
         self.Q = nn.Linear(in_features=self._latent_doc_dim,
                            out_features=self._num_labels)
         nn.init.xavier_uniform_(self.Q.weight)
+        self.Q.weight.requires_grad = False
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -81,7 +82,7 @@ class TargetAttentionClone(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-    def forward(self, K: torch.Tensor, V: torch.Tensor, Q: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
 
@@ -91,8 +92,6 @@ class TargetAttentionClone(nn.Module):
             Key matrix with shape [batch_size, embedding_dim, sequence_length]
         V : torch.Tensor
             Value matrix with shape [batch_size, embedding_dim, sequence_length]
-        Q : torch.Tensor
-            Query matrix with shape [batch_size, embedding_dim, number_queries]
 
         Returns
         -------
@@ -105,7 +104,7 @@ class TargetAttentionClone(nn.Module):
 
         """
         if self._multihead:
-            Q = torch.unsqueeze(Q, dim=0).repeat(K.size()[0], 1, 1)
+            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
@@ -119,30 +118,20 @@ class TargetAttentionClone(nn.Module):
             # Compute energy score matrix E - dot product of query embeddings Q and key embeddings K(H): QK.T
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
-            print('Devices in forward pass of target attention')
-            print(f'K.device: {K.device}')
-            print(f'V.device: {V.device}')
-            print(f'Q.device: {Q.device}')
-
             if self._scale:
-                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = self.Q.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
-                E = Q.matmul(K.permute(0, 2, 1))
-            print(f'E.device: {E.device}')
-
+                E = self.Q.weight.matmul(K.permute(0, 2, 1))
 
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
             # A ∈ R^nxl, where n: number of labels and l: sequence length
             A = F.softmax(input=E, dim=2)
-            print(f'A.device: {A.device}')
-
 
             # Compute context vector matrix C - dot product of attention matrix A and value embedding matrix V(H): QV.T
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-            print(f'C.device: {C.device}')
 
         return C, A
 

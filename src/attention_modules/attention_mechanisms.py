@@ -130,7 +130,6 @@ class Attention(nn.Module):
                                                         scale=self._scale,
                                                         multihead=self._multihead,
                                                         num_heads=self._num_heads)
-            self.Q = self.attention_layer.Q.weight.clone()
 
         elif self._att_module == 'target_weights':
             self.attention_layer = TargetAttentionWeights(num_labels=self._num_labels,
@@ -139,97 +138,6 @@ class Attention(nn.Module):
                                                           scale=self._scale,
                                                           multihead=self._multihead,
                                                           num_heads=self._num_heads)
-            self.Q = self.attention_layer.Q.weight
-
-        elif self._att_module == 'label':
-            self.attention_layer = LabelAttention(num_labels=self._num_labels,
-                                                  embedding_dim=self._embedding_dim,
-                                                  latent_doc_dim=self._latent_doc_dim,
-                                                  label_embedding_matrix=self._label_embedding_matrix,
-                                                  scale=self._scale,
-                                                  multihead=self._multihead,
-                                                  num_heads=self._num_heads)
-        elif self._att_module == 'alternate':
-            self.attention_layer = AlternateAttention(num_labels=self._num_labels,
-                                                      embedding_dim=self._embedding_dim,
-                                                      latent_doc_dim=self._latent_doc_dim,
-                                                      scale=self._scale,
-                                                      multihead=self._multihead,
-                                                      num_heads=self._num_heads)
-        elif self._att_module == 'hierarchical_target':
-            self.attention_layer = HierarchicalTargetAttention(num_labels=self._num_labels,
-                                                               num_cats=self._num_cats,
-                                                               embedding_dim=self._embedding_dim,
-                                                               latent_doc_dim=self._latent_doc_dim,
-                                                               code2cat_map=self._code2cat_map,
-                                                               scale=self._scale,
-                                                               multihead=self._multihead,
-                                                               num_heads=self._num_heads)
-
-        elif self._att_module == 'hierarchical_context':
-            self.attention_layer = HierarchicalContextAttention(num_labels=self._num_labels,
-                                                                num_cats=self._num_cats,
-                                                                embedding_dim=self._embedding_dim,
-                                                                latent_doc_dim=self._latent_doc_dim,
-                                                                code2cat_map=self._code2cat_map,
-                                                                scale=self._scale,
-                                                                multihead=self._multihead,
-                                                                num_heads=self._num_heads)
-
-        elif self._att_module == 'hierarchical_double_attention':
-            self.attention_layer = HierarchicalDoubleAttention(num_labels=self._num_labels,
-                                                               num_cats=self._num_cats,
-                                                               embedding_dim=self._embedding_dim,
-                                                               latent_doc_dim=self._latent_doc_dim,
-                                                               code2cat_map=self._code2cat_map,
-                                                               scale=self._scale,
-                                                               multihead=self._multihead,
-                                                               num_heads=self._num_heads)
-
-        elif self._att_module == 'hierarchical_label':
-            self.attention_layer = HierarchicalLabelAttention(num_labels=self._num_labels,
-                                                              num_cats=self._num_cats,
-                                                              embedding_dim=self._embedding_dim,
-                                                              latent_doc_dim=self._latent_doc_dim,
-                                                              code2cat_map=self._code2cat_map,
-                                                              cat_embedding_matrix=self._cat_embedding_matrix,
-                                                              label_embedding_matrix=self._label_embedding_matrix,
-                                                              scale=self._scale,
-                                                              multihead=self._multihead,
-                                                              num_heads=self._num_heads)
-        elif self._att_module == 'context':
-            self.attention_layer = ContextAttention(num_labels=self._num_labels,
-                                                    embedding_dim=self._embedding_dim,
-                                                    latent_doc_dim=self._latent_doc_dim,
-                                                    scale=self._scale,
-                                                    multihead=self._multihead,
-                                                    num_heads=self._num_heads)
-
-        elif self._att_module == 'context_diff':
-            self.attention_layer = ContextAttentionDiffInput(num_labels=self._num_labels,
-                                                             embedding_dim=self._embedding_dim,
-                                                             latent_doc_dim=self._latent_doc_dim,
-                                                             scale=self._scale,
-                                                             multihead=self._multihead,
-                                                             num_heads=self._num_heads)
-
-        elif self._att_module == 'max_masked':
-            self.attention_layer = MaxMaskedAttention(num_labels=self._num_labels,
-                                                      embedding_dim=self._embedding_dim,
-                                                      latent_doc_dim=self._latent_doc_dim,
-                                                      gamma=self._gamma,
-                                                      scale=self._scale,
-                                                      multihead=self._multihead,
-                                                      num_heads=self._num_heads)
-
-        elif self._att_module == 'rank_masked':
-            self.attention_layer = RankedMaskedAttention(num_labels=self._num_labels,
-                                                         embedding_dim=self._embedding_dim,
-                                                         latent_doc_dim=self._latent_doc_dim,
-                                                         gamma=self._gamma,
-                                                         scale=self._scale,
-                                                         multihead=self._multihead,
-                                                         num_heads=self._num_heads)
 
     def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
         """
@@ -250,12 +158,10 @@ class Attention(nn.Module):
         """
         K = self.K(H).permute(0, 2, 1)
         V = self.V(H).permute(0, 2, 1)
-        Q = self.Q.to(device)
 
         print('Devices in forward pass of attention class')
         print(f'K.device: {K.device}')
         print(f'V.device: {V.device}')
-        print(f'Q.device: {Q.device}')
 
         if self._multihead:
             C, A = self.attention_layer(K=K, V=V)
@@ -263,7 +169,7 @@ class Attention(nn.Module):
             A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
         else:
-            C, A = self.attention_layer(K=K, V=V, Q=Q)
+            C, A = self.attention_layer(K=K, V=V)
             print(f'C.device: {C.device}')
             print(f'A.device: {A.device}')
 
