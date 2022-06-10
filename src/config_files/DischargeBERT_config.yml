@@ -17,8 +17,8 @@ model_kwargs:
 train_kwargs:
   doc_max_len: ~
   batch_size: 8
-  epochs: 100
-  patience: 5
+  epochs: 4
+  patience: 20
   lr: 0.0001
   optimizer: 'Adam'
   multilabel: True
