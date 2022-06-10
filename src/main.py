@@ -35,6 +35,7 @@ from models.CNN import CNN
 from models.RNN import RNN
 from models.Transformers import TransformerModel
 from attention_modules.alignment_attention import AlignmentAttention
+
 # get root path
 try:
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,7 +58,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'The experiment uses the following device: {device}', flush=True)
 
 
-# noinspection PyUnboundLocalVariable
 class ExperimentSuite:
     def __init__(self,
                  model,
