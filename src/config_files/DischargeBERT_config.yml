@@ -7,10 +7,13 @@ model_kwargs:
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
   code2cat_map: ~
+  hidden_size: 768
+  dropout_p: 0
   att_module: ~
   scale: False
   multihead: False
   num_heads: ~
+  gamma: ~
 train_kwargs:
   doc_max_len: ~
   batch_size: 8
@@ -19,4 +22,5 @@ train_kwargs:
   lr: 0.0001
   optimizer: 'Adam'
   multilabel: True
+  alignmnet: False
 

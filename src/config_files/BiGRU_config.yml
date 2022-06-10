@@ -2,16 +2,20 @@ model: 'BiGRU'
 model_kwargs:
   n_labels: ~
   n_cats: ~
-  embedding_dim: 300
+  embedding_dim: 100
   embedding_matrix: ~
+  label_embedding_matrix: ~
+  cat_embedding_matrix: ~
+  code2cat_map: ~
   hidden_size: 512
   RNN_type: 'GRU'
   bidir: True
-  dropout_p: 0.5
+  dropout_p: 0.3
   att_module: ~
-  scale: False
-  label_embedding_matrix: ~
-  cat_embedding_matrix: ~
+  scale: True
+  multihead: ~
+  num_heads: ~
+  gamma: ~
 train_kwargs:
   doc_max_len: ~
   batch_size: 32
@@ -20,4 +24,5 @@ train_kwargs:
   lr: 0.0001
   optimizer: 'Adam'
   multilabel: True
+  alignment: False
 
