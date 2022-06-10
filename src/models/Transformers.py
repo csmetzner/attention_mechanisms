@@ -63,7 +63,10 @@ class TransformerModel(nn.Module):
                  n_cats: int = None,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None):
+                 code2cat_map: List[int] = None,
+                 gamma: float = None,
+                 hidden_size: int = 768,
+                 dropout_p: float = 0.0):
         super().__init__()
         self._n_labels = n_labels
         self._embedding_dim = embedding_dim
@@ -76,6 +79,7 @@ class TransformerModel(nn.Module):
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
+        self._gamma = gamma
 
         if self._model_name == 'DischargeBERT':
             self.transformer_model = BertForSequenceClassification.from_pretrained(
@@ -93,7 +97,8 @@ class TransformerModel(nn.Module):
                                          num_cats=self._n_cats,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map)
+                                         code2cat_map=self._code2cat_map,
+                                         gamma=self._gamma)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=self._latent_doc_dim,

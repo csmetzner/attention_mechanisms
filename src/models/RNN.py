@@ -75,7 +75,8 @@ class RNN(nn.Module):
                  n_cats: int = None,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None):
+                 code2cat_map: List[int] = None,
+                 gamma: float = None):
         super().__init__()
         self._n_labels = n_labels
         self._embedding_dim = embedding_dim
@@ -92,6 +93,7 @@ class RNN(nn.Module):
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
+        self._gamma = gamma
 
         # Init word embedding layer
         embedding_matrix -= embedding_matrix.mean()
@@ -137,7 +139,8 @@ class RNN(nn.Module):
                                          num_cats=self._n_cats,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map)
+                                         code2cat_map=self._code2cat_map,
+                                         gamma=self._gamma)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=self._hidden_size,
