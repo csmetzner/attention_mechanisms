@@ -11,7 +11,6 @@ Performance metrics:
 
 Author: Christoph Metzner
 """
-
 # built-in libraries
 from typing import List, Dict
 
