@@ -43,11 +43,6 @@ except NameError:
     root = os.path.dirname(os.getcwd())
 sys.path.append(root)
 print('Done!', flush=True)
-# Select seed for reproducibility
-SEED = 42
-random.seed(SEED)
-torch.manual_seed(SEED)
-np.random.seed(SEED)
 
 # Two datasets: | PathReports | Mimic |
 # - SEER cancer pathology reports  - Multiclass text classification
@@ -508,11 +503,20 @@ parser.add_argument('-ga', '--gamma_att',
 parser.add_argument('-al', '--alignment',
                     type=parse_boolean,
                     help='Flag indicating whether key and query matrix should be aligned.')
+parser.add_argument('--seed',
+                    type=int,
+                    help='Set seed number for reproducibility.')
 
 args = parser.parse_args()
 
 
 def main():
+    # Select seed for reproducibility
+    SEED = args.seed
+    random.seed(SEED)
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
+
     exp = ExperimentSuite(model=args.model,
                           att_module=args.attention_module,
                           dataset=args.dataset)
