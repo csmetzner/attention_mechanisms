@@ -10,7 +10,7 @@ model_kwargs:
   hidden_size: 512
   RNN_type: 'LSTM'
   bidir: True
-  dropout_p: 0.3
+  dropout_p: 0.15
   att_module: ~
   scale: True
   multihead: ~
@@ -18,7 +18,7 @@ model_kwargs:
   gamma: ~
 train_kwargs:
   doc_max_len: ~
-  batch_size: 32
+  batch_size: 16
   epochs: 100
   patience: 10
   lr: 0.0001

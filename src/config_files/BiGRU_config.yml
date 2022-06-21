@@ -10,7 +10,7 @@ model_kwargs:
   hidden_size: 512
   RNN_type: 'GRU'
   bidir: True
-  dropout_p: 0.3
+  dropout_p: 0.15
   att_module: ~
   scale: True
   multihead: ~

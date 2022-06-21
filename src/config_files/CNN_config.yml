@@ -8,7 +8,7 @@ model_kwargs:
   cat_embedding_matrix: ~
   code2cat_map: ~
   window_sizes: [3, 4, 5]
-  n_filters: [500, 500, 500]
+  n_filters: [1000, 1000, 1000]
   dropout_p: 0.3
   att_module: ~
   scale: True
