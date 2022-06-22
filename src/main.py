@@ -116,7 +116,9 @@ class ExperimentSuite:
                           hidden_dim: int = None,
                           window_sizes: List[int] = None,
                           gamma: float = None,
-                          alignment: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          alignment: bool = None,
+                          quartiles: bool = None,
+                          individual: bool = None,) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Set up paths to directory where config_files are stored
         path_config = os.path.join(root, 'src', 'config_files')
@@ -214,7 +216,10 @@ class ExperimentSuite:
                 self._model_args['model_kwargs']['window_sizes'] = list(map(int, window_sizes))
             else:
                 raise ValueError('Selected model has no window_sizes as model kwargs')
-
+        if quartiles is not None:
+            self._model_args['train_kwargs']['quartiles'] = quartiles
+        if individual is not None:
+            self._model_args['train_kwargs']['individual'] = individual
         return self._model_args
 
     def fit_model(self,
@@ -228,6 +233,11 @@ class ExperimentSuite:
         batch_size = model_args['train_kwargs']['batch_size']
         optim = model_args['train_kwargs']['optimizer']
         lr = model_args['train_kwargs']['lr']
+
+        # Check for required computation of performance metrics for quartiles and/or each individual labels
+        quartiles = model_args['train_kwargs']['quartiles']
+        individual = model_args['train_kwargs']['individual']
+
         # alignment = model_args['train_kwargs']['alignment']
 
         model_name = f"{self._model}" \
@@ -325,11 +335,22 @@ class ExperimentSuite:
 
         # Save the test_scores to csv file
         print('Testing trained model')
+
+        # Check if performance metrics should be computed for quartiles
+        if quartiles:
+            with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}', f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                quartiles_indices = pickle.load(f)
+        else:
+            quartiles_indices = None
+
         test_scores = scoring(model=model,
                               data_loader=test_loader,
                               multilabel=True,
                               transformer=self._transformer,
-                              class_weights=None)
+                              class_weights=None,
+                              quartiles_indices=quartiles_indices,
+                              individual=individual)
+
         print(f'Test loss: {test_scores["loss"]}', flush=True)
 
         store_scores(scores=test_scores,
@@ -338,7 +359,9 @@ class ExperimentSuite:
                      train_kwargs=model_args['train_kwargs'],
                      model_kwargs=model_args['model_kwargs'],
                      path_res_dir=path_res_dir,
-                     model_name=model_name)
+                     model_name=model_name,
+                     quartiles=quartiles,
+                     individual=individual)
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
@@ -347,7 +370,9 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                  train_kwargs: Dict[str, int],
                  model_kwargs: Dict[str, Union[int, str]],
                  path_res_dir: str,
-                 model_name: str):
+                 model_name: str,
+                 quartiles: bool = False,
+                 individual: bool = False):
 
     # Create results directories: predictions, models, scores
     path_res_preds = os.path.join(path_res_dir, 'predictions/')
@@ -420,6 +445,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'ids_{dataset}_test.csv'))
     with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), "rb") as f:
         class_names = pickle.load(f)
+    print(class_names)
 
     with open(os.path.join(path_res_preds, f'{model_name}_test.txt'), 'w') as file:
         for hadm_id, y_pred_doc in zip(ids.HADM_ID.tolist(), scores['y_preds']):
@@ -429,6 +455,132 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                     row += f'|{label}'
             row += '\n'
             file.write(row)
+
+    if quartiles:
+        metrics = []
+        columns = ['dataset',
+                   'doc_max_len',
+                   'batch_size',
+                   'patience',
+                   'att_module',
+                   'word_embedding_dim',
+                   'kernel_sizes',
+                   'hidden_dim',
+                   'dropout_p',
+                   'scale',
+                   'multihead',
+                   'num_heads',
+                   'gamma']
+        for quartile_idx in range(4):
+            metrics.append(f'f1_macro_Q{quartile_idx}')
+            metrics.append(f'f1_micro_Q{quartile_idx}')
+            columns.append(f'f1_macro_Q{quartile_idx}')
+            columns.append(f'f1_micro_Q{quartile_idx}')
+
+        file_name = f'scores_quartiles.xlsx'
+        path_save_xlsx = os.path.join(path_res_scores, file_name)
+        scores_to_excel = {f'{model_type}': [dataset,
+                                             train_kwargs['doc_max_len'],
+                                             train_kwargs['batch_size'],
+                                             train_kwargs['patience'],
+                                             model_kwargs['att_module'],
+                                             model_kwargs['embedding_dim'],
+                                             model_kwargs['window_sizes'] if model_type == 'CNN' else 'none',
+                                             model_kwargs['n_filters'] if model_type == 'CNN' else model_kwargs[
+                                                 'hidden_size'],
+                                             model_kwargs['dropout_p'],
+                                             model_kwargs['scale'],
+                                             model_kwargs['multihead'],
+                                             model_kwargs['num_heads'],
+                                             model_kwargs['gamma']]}
+
+        for metric in metrics:
+            value = scores[metric]
+            scores_to_excel[f'{model_type}'].append(value)
+
+        df = pd.DataFrame.from_dict(data=scores_to_excel, orient='index', columns=columns)
+
+        if os.path.isfile(path=path_save_xlsx):
+            writer = pd.ExcelWriter(path=path_save_xlsx, engine='openpyxl', mode='a', if_sheet_exists='overlay')
+            df.to_excel(excel_writer=writer,
+                        sheet_name='Sheet1',
+                        index=True,
+                        float_format="%.3f",
+                        na_rep='NaN',
+                        startrow=writer.sheets['Sheet1'].max_row,
+                        header=None)
+        else:
+            writer = pd.ExcelWriter(path=path_save_xlsx, engine='xlsxwriter', mode='w')
+            df.to_excel(excel_writer=writer,
+                        sheet_name='Sheet1',
+                        index=True,
+                        index_label='Model',
+                        float_format="%.3f",
+                        na_rep='NaN')
+
+        writer.save()
+
+    if individual:
+        metrics = []
+        columns = ['dataset',
+                   'doc_max_len',
+                   'batch_size',
+                   'patience',
+                   'att_module',
+                   'word_embedding_dim',
+                   'kernel_sizes',
+                   'hidden_dim',
+                   'dropout_p',
+                   'scale',
+                   'multihead',
+                   'num_heads',
+                   'gamma']
+        for i, label in enumerate(class_names):
+            metrics.append(f'f1_micro_label{i}')
+            columns.append(f'f1_micro_{label}')
+
+        file_name = f'scores_individual.xlsx'
+        path_save_xlsx = os.path.join(path_res_scores, file_name)
+        scores_to_excel = {f'{model_type}': [dataset,
+                                             train_kwargs['doc_max_len'],
+                                             train_kwargs['batch_size'],
+                                             train_kwargs['patience'],
+                                             model_kwargs['att_module'],
+                                             model_kwargs['embedding_dim'],
+                                             model_kwargs['window_sizes'] if model_type == 'CNN' else 'none',
+                                             model_kwargs['n_filters'] if model_type == 'CNN' else model_kwargs[
+                                                 'hidden_size'],
+                                             model_kwargs['dropout_p'],
+                                             model_kwargs['scale'],
+                                             model_kwargs['multihead'],
+                                             model_kwargs['num_heads'],
+                                             model_kwargs['gamma']]}
+
+        for metric in metrics:
+            value = scores[metric]
+            scores_to_excel[f'{model_type}'].append(value)
+
+        df = pd.DataFrame.from_dict(data=scores_to_excel, orient='index', columns=columns)
+
+        if os.path.isfile(path=path_save_xlsx):
+            writer = pd.ExcelWriter(path=path_save_xlsx, engine='openpyxl', mode='a', if_sheet_exists='overlay')
+            df.to_excel(excel_writer=writer,
+                        sheet_name='Sheet1',
+                        index=True,
+                        float_format="%.3f",
+                        na_rep='NaN',
+                        startrow=writer.sheets['Sheet1'].max_row,
+                        header=None)
+        else:
+            writer = pd.ExcelWriter(path=path_save_xlsx, engine='xlsxwriter', mode='w')
+            df.to_excel(excel_writer=writer,
+                        sheet_name='Sheet1',
+                        index=True,
+                        index_label='Model',
+                        float_format="%.3f",
+                        na_rep='NaN')
+
+        writer.save()
 
 # Use argparse library to set up command line arguments
 parser = argparse.ArgumentParser()
@@ -505,7 +657,14 @@ parser.add_argument('-al', '--alignment',
                     help='Flag indicating whether key and query matrix should be aligned.')
 parser.add_argument('--seed',
                     type=int,
+                    default=42,
                     help='Set seed number for reproducibility.')
+parser.add_argument('-cq', '--compute_quartiles',
+                    type=parse_boolean,
+                    help='Compute performance metrics based on quartile splits of label set.')
+parser.add_argument('-ci', '--compute_individual',
+                    type=parse_boolean,
+                    help='Compute individual label performance metrics.')
 
 args = parser.parse_args()
 
@@ -546,7 +705,9 @@ def main():
                                        hidden_dim=args.hidden_dim,
                                        window_sizes=args.window_sizes,
                                        gamma=args.gamma_att,
-                                       alignment=args.alignment)
+                                       alignment=args.alignment,
+                                       quartiles=args.compute_quartiles,
+                                       individual=args.compute_individual)
 
     if args.singularity:
         path_res_dir = 'mnt/results/'

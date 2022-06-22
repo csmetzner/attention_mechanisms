@@ -65,7 +65,10 @@ def train(model: nn.Module,
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
     multilabel = train_kwargs['multilabel']
-    #alignment = train_kwargs['alignment']
+
+    # Check required computation of performance metrics for quartiles and/or each individual labels
+    quartiles = train_kwargs['quartiles']
+    individual = train_kwargs['individual']
 
     # Set up loss function
     class_weights_tensor = None
@@ -124,10 +127,9 @@ def train(model: nn.Module,
             # y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
             # Perform backpropagation
 
-            #if b == 1:
-            #   break
+            if b == 1:
+                break
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
-
 
         ### Validate model ###
         if val_loader is not None:
@@ -136,7 +138,9 @@ def train(model: nn.Module,
                              data_loader=val_loader,
                              class_weights=class_weights,
                              multilabel=multilabel,
-                             transformer=transformer)
+                             transformer=transformer,
+                             quartiles_indices=None,
+                             individual=False)
             val_loss = scores['loss']
 
             ### Early stopping to prevent overfitting ###
@@ -158,6 +162,8 @@ def scoring(model,
             data_loader,
             multilabel: bool,
             transformer: bool = False,
+            quartiles_indices: List[int] = None,
+            individual: bool = False,
             class_weights: np.array = None) -> Dict[str, Union[float, np.array]]:
 
     """
@@ -171,6 +177,9 @@ def scoring(model,
         Flag indicating whether multi-label or multi-class text classification is taken place
     class_weights : np.array
         Array containing the class weights in shape (n_classes,)
+    quartiles : List[int]
+        Flag indicating if performance metrics should be computed for quartiles.
+    path_quartiles:
 
     Returns
     -------
@@ -238,8 +247,8 @@ def scoring(model,
             loss += loss_fct(logits, Y)
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
 
     # Compute the scores
     scores = {}
@@ -247,7 +256,9 @@ def scoring(model,
                                                       y_trues_=y_trues,
                                                       y_probs_=y_probs,
                                                       scores=scores,
-                                                      ks=[5, 8, 15])
+                                                      ks=[5, 8, 15],
+                                                      quartiles_indices=quartiles_indices,
+                                                      individual=individual)
 
     loss = np.mean(losses)
 

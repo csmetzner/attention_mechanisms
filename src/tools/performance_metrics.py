@@ -28,15 +28,25 @@ def get_scores(y_preds_: List[np.array],
                y_trues_: List[np.array],
                y_probs_: List[np.array],
                scores: Dict[str, float],
-               ks: List[int] = [5, 8, 15]) -> Dict[str, float]:
+               ks: List[int] = [5, 8, 15],
+               quartiles_indices: List[int] = None,
+               individual: bool = False,) -> Dict[str, float]:
     """
     Function that retrieves scores
     Parameters
     ----------
     y_preds_ : List[np.array]
+        Array containing predictions of validation/test dataset
     y_trues_ : List[np.array]
+        Array containing ground truths of validation/test dataset
     y_probs_ : List[np.array]
+        Array containing prediction scores (probabilities) of validation/test dataset
     ks : List[int]; default=[5, 8, 15]
+        List of precision @ k values
+    quartiles_indices: List[int]; default=None
+        Flag indicating if performance metrics should be computed for the four quartiles
+    individual: bool; default=False
+        Flag indicating if performance metrics should be computed for each individual label
 
     Returns
     -------
@@ -63,6 +73,55 @@ def get_scores(y_preds_: List[np.array],
     for k in ks:
         prec_at_k = precision_at_k(y_trues=y_trues_, y_probs=y_probs_, k=k, pos_label=1)
         scores[f'prec@{k}'] = prec_at_k
+
+    # Check if performance for quartiles should be computed
+    if quartiles_indices is not None:
+        # Split predictions and ground-truths into quartiles
+        preds_quartiles = {0: [], 1: [], 2: [], 3: []}
+        trues_quartiles = {0: [], 1: [], 2: [], 3: []}
+
+        # Nested for-loop to extract predictions and ground-truths for each quartiles per document
+        for preds, trues in zip(y_preds_, y_trues_):
+            # This preserves the original label structure of nested documents - used for F1-micro computation
+            preds_quartiles_doc = {0: [], 1: [], 2: [], 3: []}
+            trues_quartiles_doc = {0: [], 1: [], 2: [], 3: []}
+
+            # quartiles_indices indicates the membership of a label to a specific quartile [0, 1, 2, 3]
+            # We enumerate through the list of quartile assignments
+            # index: refers to the current label
+            # quart: refers to the quartile membership
+            # 0: (-inf, Q1)
+            # 1: (Q1, Q2)
+            # 2: (Q2, Q3)
+            # 3: (Q3, +inf)
+            for index, quart in enumerate(quartiles_indices):
+                preds_quartiles_doc[quart].append(preds[index])
+                trues_quartiles_doc[quart].append(trues[index])
+
+            # This for loop add the quartile lists per document to the overall quartiles
+            for quartile_idx in range(4):
+                preds_quartiles[quartile_idx].append(preds_quartiles_doc[quartile_idx])
+                trues_quartiles[quartile_idx].append(trues_quartiles_doc[quartile_idx])
+
+        for quartile_idx in range(4):
+            f1_macro = f1_score(y_true=trues_quartiles[quartile_idx], y_pred=preds_quartiles[quartile_idx], average='macro')
+            scores[f'f1_macro_Q{quartile_idx}'] = f1_macro
+            f1_micro = f1_score(y_true=trues_quartiles[quartile_idx], y_pred=preds_quartiles[quartile_idx], average='micro')
+            scores[f'f1_micro_Q{quartile_idx}'] = f1_micro
+
+    # Check if performance for each individual label should be computed
+    if individual:
+        print('Hello')
+        preds_individual = [ [] for _ in range(len(y_preds_[0]))]
+        trues_individual = [ [] for _ in range(len(y_trues_[0]))]
+        for preds, trues in zip(y_preds_, y_trues_):
+            for i, (pred, true) in enumerate(zip(preds, trues)):
+                preds_individual[i].append(pred)
+                trues_individual[i].append(true)
+
+        for i in range(len(y_preds_[0])):
+            f1_micro = f1_score(y_true=trues_individual[i], y_pred=preds_individual[i], average='micro')
+            scores[f'f1_micro_label{i}'] = f1_micro
 
     return scores, y_preds_, y_trues_, y_probs_
 

@@ -23,6 +23,8 @@ train_kwargs:
   lr: 0.0001
   optimizer: 'Adam'
   multilabel: True
+  quartiles: False
+  individual: False
   alignment: False
 
 
