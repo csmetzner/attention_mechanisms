@@ -127,8 +127,8 @@ def train(model: nn.Module,
             # y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
             # Perform backpropagation
 
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
         ### Validate model ###
@@ -247,8 +247,8 @@ def scoring(model,
             loss += loss_fct(logits, Y)
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
 
     # Compute the scores
     scores = {}
