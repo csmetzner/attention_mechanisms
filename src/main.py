@@ -477,7 +477,11 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
             columns.append(f'f1_macro_Q{quartile_idx}')
             columns.append(f'f1_micro_Q{quartile_idx}')
 
-        file_name = f'scores_quartiles.xlsx'
+        if dataset == 'Mimic50':
+            file_name = f'scores_quartiles.xlsx'
+        elif dataset == 'MimicFull':
+            file_name = f'scores_quartiles_{dataset}.xlsx'
+
         path_save_xlsx = os.path.join(path_res_scores, file_name)
         scores_to_excel = {f'{model_type}': [dataset,
                                              train_kwargs['doc_max_len'],
@@ -538,8 +542,10 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
         for i, label in enumerate(class_names):
             metrics.append(f'f1_micro_label{i}')
             columns.append(f'f1_micro_{label}')
-
-        file_name = f'scores_individual.xlsx'
+        if dataset == 'Mimic50':
+            file_name = f'scores_individual.xlsx'
+        elif dataset == 'MimicFull':
+            file_name = f'scores_individual_{dataset}.xlsx'
         path_save_xlsx = os.path.join(path_res_scores, file_name)
         scores_to_excel = {f'{model_type}': [dataset,
                                              train_kwargs['doc_max_len'],
