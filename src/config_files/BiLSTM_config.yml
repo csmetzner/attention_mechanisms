@@ -3,7 +3,8 @@ model_kwargs:
   n_labels: ~
   n_cats: ~
   embedding_dim: 100
-  embedding_matrix: ~
+  embedding_scaling: 1
+  token_embedding_matrix: ~
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
   code2cat_map: ~
@@ -15,16 +16,12 @@ model_kwargs:
   scale: True
   multihead: ~
   num_heads: ~
-  gamma: ~
 train_kwargs:
   doc_max_len: ~
   batch_size: 16
   epochs: 100
   patience: 10
   lr: 0.0001
-  optimizer: 'Adam'
-  multilabel: True
   quartiles: False
   individual: False
-  alignment: False
 
