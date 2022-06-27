@@ -71,10 +71,7 @@ class ExperimentSuite:
         # Initialize list with split names
         splits = ['train', 'val', 'test']
         # Init path to load preprocessed data
-        if self._dataset == 'PathReports':
-            path_dataset = ''
-        else:
-            path_dataset = os.path.join(root, 'data', 'processed', f'data_{self._dataset}')
+        path_dataset = os.path.join(root, 'data', 'processed', f'data_{self._dataset}')
 
         # Initialize lists to store training, validation, and testing data
         # X: documents, Y: ground-truth labels
@@ -107,7 +104,6 @@ class ExperimentSuite:
                           dropout_p: float = None,
                           batch_size: int = None,
                           epochs: int = None,
-                          optimizer: str = None,
                           doc_max_len: int = None,
                           patience: int = None,
                           scale: bool = False,
@@ -115,65 +111,65 @@ class ExperimentSuite:
                           num_heads: int = None,
                           hidden_dim: int = None,
                           window_sizes: List[int] = None,
-                          gamma: float = None,
-                          alignment: bool = None,
                           quartiles: bool = None,
                           individual: bool = None,) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
-        # Set up paths to directory where config_files are stored
+        # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
         path_data = os.path.join(root, 'data', 'processed')
 
-        # Load pre-defined config file for current model
-        # print(os.path.join(path_config, f'{model}_config.yml'))
+        # Load config file for current model
         with open(os.path.join(path_config, f'{model}_config.yml'), 'r') as f:
             self._model_args = yaml.safe_load(stream=f)
 
-        # Load pre-defined config file for selected dataset
+        # Load config file for selected dataset
         with open(os.path.join(path_config, 'datasets_config.yml'), 'r') as f:
             datasets_config = yaml.safe_load(stream=f)
-
-        # check hierarchical att_module
 
         # Retrieve required model arguments
         if dataset == 'PathReports':
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels'][task]
             if att_module.split('_')[0] == 'hierarchical':
                 self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats'][task]
-        else:
+        else:  # Else: 'Mimic50' or 'MimicFull'
             self._model_args['model_kwargs']['n_labels'] = datasets_config[dataset]['n_labels']
             if att_module.split('_')[0] == 'hierarchical':
                 self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
 
-        # Add maximal length of document
+        # Set max document length based on model - transformer model can only process 512 tokens
         if self._transformer:
             self._model_args['train_kwargs']['doc_max_len'] = 512
         else:
             self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
-        # add type of attention mechanism
+
+        # Set attention mechanism
         self._model_args['model_kwargs']['att_module'] = att_module
 
-        # Check if optional arguments were given for | embedding_dim | epochs | optimizer | doc_max_length |
+        # Check if optional arguments were passed - if so, set to given value
+        # Embedding Dimension:
         if embedding_dim is not None:
             self._model_args['model_kwargs']['embedding_dim'] = embedding_dim
+        # Retrieve token embedding matrix
+        token_embedding_matrix = get_word_embedding_matrix(dataset=dataset,
+                                                           embedding_dim=self._model_args['model_kwargs']['embedding_dim'],
+                                                           path_data=path_data,
+                                                           min_count=3)
 
-        # Retrieve embedding matrix (embedding_matrix)
-        embedding_matrix = get_word_embedding_matrix(dataset=dataset,
-                                                     embedding_dim=self._model_args['model_kwargs']['embedding_dim'],
-                                                     path_data=path_data,
-                                                     min_count=3)
+        # Add token embedding matrix to model args dict if not transformer - huggingface transformer models alread have
         if not self._transformer:
-            self._model_args['model_kwargs']['embedding_matrix'] = embedding_matrix
+            self._model_args['model_kwargs']['token_embedding_matrix'] = token_embedding_matrix
 
-        # Load description embeddings
-        if att_module == 'label':
-            with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
-                label_embedding_matrix = pickle.load(f)
-            self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
+        # Load pre-trained label and category embedding matrices, and label2category-mapping
+        # Load mapping if hierarchical attention:
         if att_module.split('_')[0] == 'hierarchical':
             with open(os.path.join(path_data, 'code_embeddings', f'embedding_matrix_{dataset}_mapping.pkl'), 'rb') as f:
                 code2cat_map = pickle.load(f)
             self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
+
+        if att_module == 'label':
+            with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
+                label_embedding_matrix = pickle.load(f)
+            self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
 
         if att_module == 'hierarchical_label':
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
@@ -196,21 +192,15 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['batch_size'] = batch_size
         if epochs is not None:
             self._model_args['train_kwargs']['epochs'] = epochs
-        if optimizer is not None:
-            self._model_args['train_kwargs']['optimizer'] = optimizer
         if doc_max_len is not None:
             self._model_args['train_kwargs']['doc_max_len'] = doc_max_len
         if patience is not None:
             self._model_args['train_kwargs']['patience'] = patience
-        if gamma is not None:
-            self._model_args['model_kwargs']['gamma'] = float(gamma)
         if hidden_dim is not None:
             if self._model == 'CNN':
                 self._model_args['model_kwargs']['n_filters'] = [int(hidden_dim)] * 3
             else:
                 self._model_args['model_kwargs']['hidden_size'] = int(hidden_dim)
-        if alignment is not None:
-            self._model_args['train_kwargs']['alignment'] = alignment
         if window_sizes is not None:
             if self._model == 'CNN':
                 self._model_args['model_kwargs']['window_sizes'] = list(map(int, window_sizes))
@@ -251,7 +241,6 @@ class ExperimentSuite:
                      f"_{model_args['model_kwargs']['scale']}" \
                      f"_{model_args['model_kwargs']['multihead']}" \
                      f"_{model_args['model_kwargs']['num_heads']}" \
-                     f"_{model_args['model_kwargs']['gamma']}" \
                      f'{timestamp}'
 
         print(f'Name of model: {model_name}')
@@ -263,11 +252,7 @@ class ExperimentSuite:
 
         save_name = os.path.join(path_res_models, model_name)  # create absolute path to storage location
 
-        if self._dataset == 'PathReports':
-            #Data = dataloaders.PathReports
-            pass
-        else:
-            Data = dataloaders.MimicData
+        Data = dataloaders.MimicData
 
         #if self._transformer:
         #    train_dataset = X[0]
@@ -315,10 +300,7 @@ class ExperimentSuite:
             model = torch.nn.DataParallel(model)
 
         # Set up optimizer
-        if optim == 'Adam':
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
-        elif optim == 'AdamW':
-            optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999))
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
 
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
@@ -396,7 +378,6 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                'scale',
                'multihead',
                'num_heads',
-               'gamma',
                'f1_macro_sk', 'f1_micro_sk', 'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
 
     file_name = f'scores.xlsx'
@@ -412,8 +393,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                                          model_kwargs['dropout_p'],
                                          model_kwargs['scale'],
                                          model_kwargs['multihead'],
-                                         model_kwargs['num_heads'],
-                                         model_kwargs['gamma']]}
+                                         model_kwargs['num_heads']]}
 
     for metric in metrics:
         value = scores[metric]
@@ -445,7 +425,6 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'ids_{dataset}_test.csv'))
     with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), "rb") as f:
         class_names = pickle.load(f)
-    print(class_names)
 
     with open(os.path.join(path_res_preds, f'{model_name}_test.txt'), 'w') as file:
         for hadm_id, y_pred_doc in zip(ids.HADM_ID.tolist(), scores['y_preds']):
@@ -469,8 +448,8 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                    'dropout_p',
                    'scale',
                    'multihead',
-                   'num_heads',
-                   'gamma']
+                   'num_heads']
+
         for quartile_idx in range(4):
             metrics.append(f'f1_macro_Q{quartile_idx}')
             metrics.append(f'f1_micro_Q{quartile_idx}')
@@ -495,8 +474,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                                              model_kwargs['dropout_p'],
                                              model_kwargs['scale'],
                                              model_kwargs['multihead'],
-                                             model_kwargs['num_heads'],
-                                             model_kwargs['gamma']]}
+                                             model_kwargs['num_heads']]}
 
         for metric in metrics:
             value = scores[metric]
@@ -537,8 +515,8 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                    'dropout_p',
                    'scale',
                    'multihead',
-                   'num_heads',
-                   'gamma']
+                   'num_heads']
+
         for i, label in enumerate(class_names):
             metrics.append(f'f1_micro_label{i}')
             columns.append(f'f1_micro_{label}')
@@ -559,8 +537,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                                              model_kwargs['dropout_p'],
                                              model_kwargs['scale'],
                                              model_kwargs['multihead'],
-                                             model_kwargs['num_heads'],
-                                             model_kwargs['gamma']]}
+                                             model_kwargs['num_heads']]}
 
         for metric in metrics:
             value = scores[metric]
@@ -587,6 +564,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                         na_rep='NaN')
 
         writer.save()
+
 
 # Use argparse library to set up command line arguments
 parser = argparse.ArgumentParser()
@@ -656,11 +634,6 @@ parser.add_argument('-hd', '--hidden_dim',
 parser.add_argument('-ws', '--window_sizes',
                     nargs='+',
                     help='Set window sizes for the 3 conv layers in CNN model (e.g., -ws 3 4 5)')
-parser.add_argument('-ga', '--gamma_att',
-                    help='Set gamma for max masked attention.')
-parser.add_argument('-al', '--alignment',
-                    type=parse_boolean,
-                    help='Flag indicating whether key and query matrix should be aligned.')
 parser.add_argument('--seed',
                     type=int,
                     default=42,
@@ -702,7 +675,6 @@ def main():
                                        dropout_p=args.dropout_p,
                                        batch_size=args.batch_size,
                                        epochs=args.epochs,
-                                       optimizer=args.optimizer,
                                        doc_max_len=args.doc_max_len,
                                        patience=args.patience,
                                        scale=args.scale,
@@ -710,8 +682,6 @@ def main():
                                        num_heads=args.num_heads,
                                        hidden_dim=args.hidden_dim,
                                        window_sizes=args.window_sizes,
-                                       gamma=args.gamma_att,
-                                       alignment=args.alignment,
                                        quartiles=args.compute_quartiles,
                                        individual=args.compute_individual)
 
