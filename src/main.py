@@ -226,7 +226,6 @@ class ExperimentSuite:
         # Retrieve train kwargs
         doc_max_len = model_args['train_kwargs']['doc_max_len']
         batch_size = model_args['train_kwargs']['batch_size']
-        optim = model_args['train_kwargs']['optimizer']
         lr = model_args['train_kwargs']['lr']
 
         # Check for required computation of performance metrics for quartiles and/or each individual labels
@@ -597,7 +596,7 @@ parser.add_argument('-am', '--attention_module',
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
-parser.add_argument('-en', '-experiment_name',
+parser.add_argument('-en', '--experiment_name',
                     required=True,
                     type=str,
                     help='Set name of experiment')
