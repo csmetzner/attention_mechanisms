@@ -111,7 +111,6 @@ def get_scores(y_preds_: List[np.array],
 
     # Check if performance for each individual label should be computed
     if individual:
-        print('Hello')
         preds_individual = [ [] for _ in range(len(y_preds_[0]))]
         trues_individual = [ [] for _ in range(len(y_trues_[0]))]
         for preds, trues in zip(y_preds_, y_trues_):

@@ -64,24 +64,15 @@ def train(model: nn.Module,
 
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
-    multilabel = train_kwargs['multilabel']
-
-    # Check required computation of performance metrics for quartiles and/or each individual labels
-    quartiles = train_kwargs['quartiles']
-    individual = train_kwargs['individual']
-
     # Set up loss function
     class_weights_tensor = None
     if class_weights is not None:
         class_weights_tensor = torch.FloatTensor(class_weights).to(device)
-    if multilabel:
-        # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
-        # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
-        # Use BCEWithLogitsLoss() for increased numerical stability
-        loss_fct = torch.nn.BCEWithLogitsLoss(weight=class_weights_tensor)
-    else:
-        # Multiclass - https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
-        loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
+
+    # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
+    # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
+    # Use BCEWithLogitsLoss() for increased numerical stability
+    loss_fct = torch.nn.BCEWithLogitsLoss(weight=class_weights_tensor)
 
     # Variables to track validation performance and early stopping
     best_val_loss = np.inf
@@ -137,7 +128,6 @@ def train(model: nn.Module,
             scores = scoring(model=model,
                              data_loader=val_loader,
                              class_weights=class_weights,
-                             multilabel=multilabel,
                              transformer=transformer,
                              quartiles_indices=None,
                              individual=False)
@@ -160,7 +150,6 @@ def train(model: nn.Module,
 
 def scoring(model,
             data_loader,
-            multilabel: bool,
             transformer: bool = False,
             quartiles_indices: List[int] = None,
             individual: bool = False,
@@ -192,13 +181,10 @@ def scoring(model,
     class_weights_tensor = None
     if class_weights is not None:
         class_weights_tensor = torch.FloatTensor(class_weights).to(device)
-    if multilabel:
-        # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
-        # Use BCEWithLogitsLoss() for increased numerical stability
-        loss_fct = torch.nn.BCEWithLogitsLoss(weight=class_weights_tensor)
-    else:
-        # Multiclass
-        loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
+
+    # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
+    # Use BCEWithLogitsLoss() for increased numerical stability
+    loss_fct = torch.nn.BCEWithLogitsLoss(weight=class_weights_tensor)
 
     # Put model in evaluation mode; turns off stochastic based layers (e.g., dropout or batch normalization)
     model.eval()
@@ -232,16 +218,9 @@ def scoring(model,
 
             # Extend arrays with ground-truth values (Y), prediction probabilities (probs), and predictions (logits)
             y_trues.extend(Y.detach().cpu().numpy())
-            if multilabel:
-                probs = torch.sigmoid(logits).detach().cpu().numpy()
-                y_probs.extend(probs)
-                y_preds.extend(np.round(probs, 0))
-            else:
-                soft_out = F.softmax(logits, dim=-1).max(-1)
-                probs = soft_out[0].detach().cpu().numpy()
-                probs_idx = soft_out[1].detach().cpu().numpy()
-                y_probs.extend(probs)
-                y_preds.extend(probs_idx)
+            probs = torch.sigmoid(logits).detach().cpu().numpy()
+            y_probs.extend(probs)
+            y_preds.extend(np.round(probs, 0))
 
             # Compute the loss for current batch
             loss += loss_fct(logits, Y)
