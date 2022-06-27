@@ -34,7 +34,6 @@ from tools.training import train, scoring
 from models.CNN import CNN
 from models.RNN import RNN
 from models.Transformers import TransformerModel
-from attention_modules.alignment_attention import AlignmentAttention
 
 # get root path
 try:
@@ -57,11 +56,14 @@ class ExperimentSuite:
     def __init__(self,
                  model,
                  att_module,
-                 dataset):
+                 dataset,
+                 seed):
         self._dataset = dataset
         self._model = model
         self._att_module = att_module
+        self.seed = seed
         self._model_args = None
+
         if self._model == 'DischargeBERT':
             self._transformer = True
         else:
@@ -112,7 +114,8 @@ class ExperimentSuite:
                           hidden_dim: int = None,
                           window_sizes: List[int] = None,
                           quartiles: bool = None,
-                          individual: bool = None,) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          individual: bool = None,
+                          embedding_scaling: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
@@ -210,6 +213,8 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['quartiles'] = quartiles
         if individual is not None:
             self._model_args['train_kwargs']['individual'] = individual
+        if embedding_scaling is not None:
+            self._model_args['model_kwargs']['embedding_scaling'] = embedding_scaling
         return self._model_args
 
     def fit_model(self,
@@ -327,7 +332,6 @@ class ExperimentSuite:
 
         test_scores = scoring(model=model,
                               data_loader=test_loader,
-                              multilabel=True,
                               transformer=self._transformer,
                               class_weights=None,
                               quartiles_indices=quartiles_indices,
@@ -338,6 +342,7 @@ class ExperimentSuite:
         store_scores(scores=test_scores,
                      model_type=self._model,
                      dataset=self._dataset,
+                     seed= self.seed,
                      train_kwargs=model_args['train_kwargs'],
                      model_kwargs=model_args['model_kwargs'],
                      path_res_dir=path_res_dir,
@@ -349,6 +354,7 @@ class ExperimentSuite:
 def store_scores(scores: Dict[str, Union[List[float], float]],
                  model_type: str,
                  dataset: str,
+                 seed: int,
                  train_kwargs: Dict[str, int],
                  model_kwargs: Dict[str, Union[int, str]],
                  path_res_dir: str,
@@ -367,6 +373,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     metrics = ['f1_macro_sk', 'f1_micro_sk',
                'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
     columns = ['dataset',
+               'seed'
                'doc_max_len',
                'batch_size',
                'patience',
@@ -383,6 +390,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     file_name = f'scores.xlsx'
     path_save_xlsx = os.path.join(path_res_scores, file_name)
     scores_to_excel = {f'{model_type}': [dataset,
+                                         seed,
                                          train_kwargs['doc_max_len'],
                                          train_kwargs['batch_size'],
                                          train_kwargs['patience'],
@@ -438,6 +446,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     if quartiles:
         metrics = []
         columns = ['dataset',
+                   'seed',
                    'doc_max_len',
                    'batch_size',
                    'patience',
@@ -456,13 +465,11 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
             columns.append(f'f1_macro_Q{quartile_idx}')
             columns.append(f'f1_micro_Q{quartile_idx}')
 
-        if dataset == 'Mimic50':
-            file_name = f'scores_quartiles.xlsx'
-        elif dataset == 'MimicFull':
-            file_name = f'scores_quartiles_{dataset}.xlsx'
+        file_name = f'scores_quartiles_{dataset}.xlsx'
 
         path_save_xlsx = os.path.join(path_res_scores, file_name)
         scores_to_excel = {f'{model_type}': [dataset,
+                                             seed,
                                              train_kwargs['doc_max_len'],
                                              train_kwargs['batch_size'],
                                              train_kwargs['patience'],
@@ -505,6 +512,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     if individual:
         metrics = []
         columns = ['dataset',
+                   'seed',
                    'doc_max_len',
                    'batch_size',
                    'patience',
@@ -520,12 +528,12 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
         for i, label in enumerate(class_names):
             metrics.append(f'f1_micro_label{i}')
             columns.append(f'f1_micro_{label}')
-        if dataset == 'Mimic50':
-            file_name = f'scores_individual.xlsx'
-        elif dataset == 'MimicFull':
-            file_name = f'scores_individual_{dataset}.xlsx'
+
+        file_name = f'scores_individual_{dataset}.xlsx'
+
         path_save_xlsx = os.path.join(path_res_scores, file_name)
         scores_to_excel = {f'{model_type}': [dataset,
+                                             seed,
                                              train_kwargs['doc_max_len'],
                                              train_kwargs['batch_size'],
                                              train_kwargs['patience'],
@@ -589,6 +597,10 @@ parser.add_argument('-am', '--attention_module',
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
+parser.add_argument('-en', '-experiment_name',
+                    required=True,
+                    type=str,
+                    help='Set name of experiment')
 parser.add_argument('-t', '--task',
                     type=str,
                     choices=['site', 'subsite', 'laterality', 'grade', 'histology', 'behavior'],
@@ -644,6 +656,9 @@ parser.add_argument('-cq', '--compute_quartiles',
 parser.add_argument('-ci', '--compute_individual',
                     type=parse_boolean,
                     help='Compute individual label performance metrics.')
+parser.add_argument('-es', '--embedding_scaling',
+                    type=float,
+                    help='Set scaler for token/label/category embedding normalization')
 
 args = parser.parse_args()
 
@@ -657,7 +672,8 @@ def main():
 
     exp = ExperimentSuite(model=args.model,
                           att_module=args.attention_module,
-                          dataset=args.dataset)
+                          dataset=args.dataset,
+                          seed=SEED)
 
     if (args.dataset == 'PathReports') and (args.task is None):
         raise TypeError('If dataset "PathReports" is selected, you MUST select a task.'
@@ -683,12 +699,13 @@ def main():
                                        hidden_dim=args.hidden_dim,
                                        window_sizes=args.window_sizes,
                                        quartiles=args.compute_quartiles,
-                                       individual=args.compute_individual)
+                                       individual=args.compute_individual,
+                                       embedding_scaling=args.embedding_scaling)
 
     if args.singularity:
-        path_res_dir = 'mnt/results/'
+        path_res_dir = f'mnt/results_{args.experiment_name}/'
     else:
-        path_res_dir = os.path.join(root, 'results')
+        path_res_dir = os.path.join(root, f'results_{args.experiment_name}')
 
     if not os.path.exists(os.path.dirname(path_res_dir)):
         os.makedirs(os.path.dirname(path_res_dir))
