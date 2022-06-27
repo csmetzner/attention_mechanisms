@@ -84,9 +84,9 @@ class ExperimentSuite:
             # Load token2idx mapped documents
             if self._transformer:
                 X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}_text.pkl'))
-                #Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
-                #Y_tensor = torch.stack([torch.from_numpy(sample) for sample in Y_split.values])
-                #X_split['labels'] = Y_tensor
+                Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
+                Y_tensor = torch.stack([torch.from_numpy(sample) for sample in Y_split.values])
+                X_split['labels'] = Y_tensor
                 X.append(X_split)
             else:
                 X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}.pkl'))
@@ -372,11 +372,12 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     metrics = ['f1_macro_sk', 'f1_micro_sk',
                'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
     columns = ['dataset',
-               'seed'
+               'seed',
                'doc_max_len',
                'batch_size',
                'patience',
                'att_module',
+               'embedding_scaling',
                'word_embedding_dim',
                'kernel_sizes',
                'hidden_dim',
@@ -394,6 +395,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                                          train_kwargs['batch_size'],
                                          train_kwargs['patience'],
                                          model_kwargs['att_module'],
+                                         model_kwargs['embedding_scaling'],
                                          model_kwargs['embedding_dim'],
                                          model_kwargs['window_sizes'] if model_type == 'CNN' else 'none',
                                          model_kwargs['n_filters'] if model_type == 'CNN' else model_kwargs['hidden_size'],
@@ -450,6 +452,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                    'batch_size',
                    'patience',
                    'att_module',
+                   'embedding_scaling',
                    'word_embedding_dim',
                    'kernel_sizes',
                    'hidden_dim',
@@ -473,6 +476,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                                              train_kwargs['batch_size'],
                                              train_kwargs['patience'],
                                              model_kwargs['att_module'],
+                                             model_kwargs['embedding_scaling'],
                                              model_kwargs['embedding_dim'],
                                              model_kwargs['window_sizes'] if model_type == 'CNN' else 'none',
                                              model_kwargs['n_filters'] if model_type == 'CNN' else model_kwargs[
@@ -516,6 +520,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                    'batch_size',
                    'patience',
                    'att_module',
+                   'embedding_scaling',
                    'word_embedding_dim',
                    'kernel_sizes',
                    'hidden_dim',
@@ -537,6 +542,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                                              train_kwargs['batch_size'],
                                              train_kwargs['patience'],
                                              model_kwargs['att_module'],
+                                             model_kwargs['embedding_scaling'],
                                              model_kwargs['embedding_dim'],
                                              model_kwargs['window_sizes'] if model_type == 'CNN' else 'none',
                                              model_kwargs['n_filters'] if model_type == 'CNN' else model_kwargs[
