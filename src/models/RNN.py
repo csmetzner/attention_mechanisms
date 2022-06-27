@@ -62,7 +62,7 @@ class RNN(nn.Module):
     def __init__(self,
                  n_labels: int,
                  embedding_dim: int,
-                 embedding_matrix: np.array,
+                 token_embedding_matrix: np.array,
                  hidden_size: int,
                  RNN_type: str,
                  bidir: bool = True,
@@ -73,10 +73,10 @@ class RNN(nn.Module):
                  multihead: int = False,
                  num_heads: int = None,
                  n_cats: int = None,
+                 embedding_scaling: int = 1,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None,
-                 gamma: float = None):
+                 code2cat_map: List[int] = None):
         super().__init__()
         self._n_labels = n_labels
         self._embedding_dim = embedding_dim
@@ -90,15 +90,15 @@ class RNN(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
         self._n_cats = n_cats
+        self._embedding_scaling = embedding_scaling
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
-        self._gamma = gamma
 
         # Init word embedding layer
-        embedding_matrix -= embedding_matrix.mean()
-        embedding_matrix /= (embedding_matrix.std() * 20)
-        self.embedding_layer = nn.Embedding.from_pretrained(torch.tensor(embedding_matrix, dtype=torch.float),
+        token_embedding_matrix -= token_embedding_matrix.mean()
+        token_embedding_matrix /= (token_embedding_matrix.std() * self._embedding_scaling)
+        self.embedding_layer = nn.Embedding.from_pretrained(torch.tensor(token_embedding_matrix, dtype=torch.float),
                                                             freeze=False,
                                                             padding_idx=0)
         self.embedding_layer.weight[0].data.fill_(0)  # set embedding layer weights of index 0 to 0
@@ -139,8 +139,7 @@ class RNN(nn.Module):
                                          num_cats=self._n_cats,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map,
-                                         gamma=self._gamma)
+                                         code2cat_map=self._code2cat_map)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=self._hidden_size,
@@ -184,6 +183,7 @@ class RNN(nn.Module):
         # Compute document representations using the Bi-LSTM
         H = self._RNN(word_embeds)
         H = H[0].permute(0, 2, 1)
+        H = self.dropout_layer(H)
 
         # Add attention module here
         C, att_scores = self.attention_layer(H=H)

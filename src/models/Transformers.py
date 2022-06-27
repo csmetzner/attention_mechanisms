@@ -66,7 +66,8 @@ class TransformerModel(nn.Module):
                  code2cat_map: List[int] = None,
                  gamma: float = None,
                  hidden_size: int = 768,
-                 dropout_p: float = 0.0):
+                 dropout_p: float = 0.5,
+                 embedding_scaling: float = 1):
         super().__init__()
         self._n_labels = n_labels
         self._embedding_dim = embedding_dim
@@ -79,12 +80,16 @@ class TransformerModel(nn.Module):
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
-        self._gamma = gamma
+        self._dropout_p = dropout_p
+        self._embedding_scaling = embedding_scaling
 
         if self._model_name == 'DischargeBERT':
             self.transformer_model = BertForSequenceClassification.from_pretrained(
                 "emilyalsentzer/Bio_Discharge_Summary_BERT", num_labels=self._n_labels)
             self._latent_doc_dim = 768
+
+        # Init dropout layer
+        self.dropout_layer = nn.Dropout(p=self._dropout_p)
 
         # Init Attention Layer
         self.attention_layer = Attention(num_labels=self._n_labels,
@@ -95,10 +100,10 @@ class TransformerModel(nn.Module):
                                          multihead=self._multihead,
                                          num_heads=self._num_heads,
                                          num_cats=self._n_cats,
+                                         embedding_scaling=self._embedding_scaling,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map,
-                                         gamma=self._gamma)
+                                         code2cat_map=self._code2cat_map)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=self._latent_doc_dim,
@@ -139,6 +144,8 @@ class TransformerModel(nn.Module):
         # retrieve hidden state of CLS token
         #H = H['hidden_states'][-1][:, 0, :].unsqueeze(dim=1).permute(0, 2, 1)
         H = H['hidden_states'][-1].permute(0, 2, 1)
+
+        H = self.dropout_layer(H)
 
         # Add attention module here
         C, att_scores = self.attention_layer(H=H)

@@ -58,7 +58,7 @@ class CNN(nn.Module):
     def __init__(self,
                  n_labels: int,
                  embedding_dim: int,
-                 embedding_matrix: np.array = None,
+                 token_embedding_matrix: np.array = None,
                  window_sizes: List[int] = [3, 5, 7],
                  n_filters: List[int] = [500, 500, 500],
                  dropout_p: float = 0.3,
@@ -67,10 +67,10 @@ class CNN(nn.Module):
                  multihead: bool = False,
                  num_heads: int = None,
                  n_cats: int = None,
+                 embedding_scaling: float = 1,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None,
-                 gamma: float = None):
+                 code2cat_map: List[int] = None):
 
         super().__init__()
         self._n_labels = n_labels
@@ -83,25 +83,21 @@ class CNN(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
+        self._embedding_scaling = embedding_scaling
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
-        self._gamma = gamma
 
         # Check to make sure window_sizes has same number of entries as num_filters
         if len(self._window_sizes) != len(self._n_filters):
             raise Exception("window_sizes must be same length as num_filters")
 
-        # Init word embedding layer
-        if embedding_matrix is None:
-            self.embedding_layer = nn.Embedding(num_embeddings=10, embedding_dim=self._embedding_dim, padding_idx=0)
-            self.embedding_layer.weight[0].data.fill_(0)  # set embedding layer weights of index 0 to 0
-        else:
-            embedding_matrix -= embedding_matrix.mean()
-            embedding_matrix /= (embedding_matrix.std() * 20)
-            self.embedding_layer = nn.Embedding.from_pretrained(torch.tensor(embedding_matrix, dtype=torch.float),
-                                                                freeze=False,
-                                                                padding_idx=0)
+        token_embedding_matrix -= token_embedding_matrix.mean()
+        token_embedding_matrix /= (token_embedding_matrix.std() * self._embedding_scaling)
+
+        self.embedding_layer = nn.Embedding.from_pretrained(torch.tensor(token_embedding_matrix, dtype=torch.float),
+                                                            freeze=False,
+                                                            padding_idx=0)
         self.embedding_layer.weight[0].data.fill_(0)  # set embedding layer weights of index 0 to 0
 
         # Init dropout layer
@@ -128,10 +124,10 @@ class CNN(nn.Module):
                                          multihead=self._multihead,
                                          num_heads=self._num_heads,
                                          num_cats=self._n_cats,
+                                         embedding_scaling=self._embedding_scaling,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map,
-                                         gamma=self._gamma)
+                                         code2cat_map=self._code2cat_map)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
