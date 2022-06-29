@@ -64,7 +64,6 @@ class TransformerModel(nn.Module):
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
                  code2cat_map: List[int] = None,
-                 gamma: float = None,
                  hidden_size: int = 768,
                  dropout_p: float = 0.5,
                  embedding_scaling: float = 1):

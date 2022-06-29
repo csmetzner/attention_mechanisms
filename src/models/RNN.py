@@ -137,6 +137,7 @@ class RNN(nn.Module):
                                          multihead=self._multihead,
                                          num_heads=self._num_heads,
                                          num_cats=self._n_cats,
+                                         embedding_scaling=self._embedding_scaling,
                                          label_embedding_matrix=self._label_embedding_matrix,
                                          cat_embedding_matrix=self._cat_embedding_matrix,
                                          code2cat_map=self._code2cat_map)
