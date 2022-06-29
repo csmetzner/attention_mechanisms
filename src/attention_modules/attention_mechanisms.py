@@ -85,10 +85,10 @@ class Attention(nn.Module):
                  multihead: bool = False,
                  num_heads: int = None,
                  num_cats: int = None,
+                 embedding_scaling: float = 1,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
-                 code2cat_map: List[int] = None,
-                 gamma: float = None):
+                 code2cat_map: List[int] = None):
 
         super().__init__()
         self._num_labels = num_labels
@@ -99,10 +99,10 @@ class Attention(nn.Module):
         self._multihead = multihead
         self._num_heads = num_heads
         self._num_cats = num_cats
+        self._embedding_scaling = embedding_scaling
         self._label_embedding_matrix = label_embedding_matrix
         self._cat_embedding_matrix = cat_embedding_matrix
         self._code2cat_map = code2cat_map
-        self._gamma = gamma
 
         # Init key-value pair matrices
         # Initialize key-value pair matrices
@@ -130,12 +130,11 @@ class Attention(nn.Module):
                                                    scale=self._scale,
                                                    multihead=self._multihead,
                                                    num_heads=self._num_heads)
-
-        # other
         elif self._att_module == 'label':
             self.attention_layer = LabelAttention(num_labels=self._num_labels,
                                                   embedding_dim=self._embedding_dim,
                                                   latent_doc_dim=self._latent_doc_dim,
+                                                  embedding_scaling=self._embedding_scaling,
                                                   label_embedding_matrix=self._label_embedding_matrix,
                                                   scale=self._scale,
                                                   multihead=self._multihead,
@@ -156,71 +155,18 @@ class Attention(nn.Module):
                                                                scale=self._scale,
                                                                multihead=self._multihead,
                                                                num_heads=self._num_heads)
-
-        elif self._att_module == 'hierarchical_context':
-            self.attention_layer = HierarchicalContextAttention(num_labels=self._num_labels,
-                                                                num_cats=self._num_cats,
-                                                                embedding_dim=self._embedding_dim,
-                                                                latent_doc_dim=self._latent_doc_dim,
-                                                                code2cat_map=self._code2cat_map,
-                                                                scale=self._scale,
-                                                                multihead=self._multihead,
-                                                                num_heads=self._num_heads)
-
-        elif self._att_module == 'hierarchical_double_attention':
-            self.attention_layer = HierarchicalDoubleAttention(num_labels=self._num_labels,
-                                                               num_cats=self._num_cats,
-                                                               embedding_dim=self._embedding_dim,
-                                                               latent_doc_dim=self._latent_doc_dim,
-                                                               code2cat_map=self._code2cat_map,
-                                                               scale=self._scale,
-                                                               multihead=self._multihead,
-                                                               num_heads=self._num_heads)
-
         elif self._att_module == 'hierarchical_label':
             self.attention_layer = HierarchicalLabelAttention(num_labels=self._num_labels,
                                                               num_cats=self._num_cats,
                                                               embedding_dim=self._embedding_dim,
                                                               latent_doc_dim=self._latent_doc_dim,
                                                               code2cat_map=self._code2cat_map,
+                                                              embedding_scaling=self._embedding_scaling,
                                                               cat_embedding_matrix=self._cat_embedding_matrix,
                                                               label_embedding_matrix=self._label_embedding_matrix,
                                                               scale=self._scale,
                                                               multihead=self._multihead,
                                                               num_heads=self._num_heads)
-        elif self._att_module == 'context':
-            self.attention_layer = ContextAttention(num_labels=self._num_labels,
-                                                    embedding_dim=self._embedding_dim,
-                                                    latent_doc_dim=self._latent_doc_dim,
-                                                    scale=self._scale,
-                                                    multihead=self._multihead,
-                                                    num_heads=self._num_heads)
-
-        elif self._att_module == 'context_diff':
-            self.attention_layer = ContextAttentionDiffInput(num_labels=self._num_labels,
-                                                             embedding_dim=self._embedding_dim,
-                                                             latent_doc_dim=self._latent_doc_dim,
-                                                             scale=self._scale,
-                                                             multihead=self._multihead,
-                                                             num_heads=self._num_heads)
-
-        elif self._att_module == 'max_masked':
-            self.attention_layer = MaxMaskedAttention(num_labels=self._num_labels,
-                                                      embedding_dim=self._embedding_dim,
-                                                      latent_doc_dim=self._latent_doc_dim,
-                                                      gamma=self._gamma,
-                                                      scale=self._scale,
-                                                      multihead=self._multihead,
-                                                      num_heads=self._num_heads)
-
-        elif self._att_module == 'rank_masked':
-            self.attention_layer = RankedMaskedAttention(num_labels=self._num_labels,
-                                                         embedding_dim=self._embedding_dim,
-                                                         latent_doc_dim=self._latent_doc_dim,
-                                                         gamma=self._gamma,
-                                                         scale=self._scale,
-                                                         multihead=self._multihead,
-                                                         num_heads=self._num_heads)
 
     def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
         """

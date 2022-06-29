@@ -527,6 +527,7 @@ class HierarchicalLabelAttention(nn.Module):
                  embedding_dim: int,
                  latent_doc_dim: int,
                  code2cat_map: List[int],
+                 embedding_scaling: float,
                  cat_embedding_matrix: np.array,
                  label_embedding_matrix: np.array,
                  scale: bool = False,
@@ -539,6 +540,7 @@ class HierarchicalLabelAttention(nn.Module):
         self._embedding_dim = embedding_dim
         self._latent_doc_dim = latent_doc_dim
         self._code2cat_map = code2cat_map
+        self._embedding_scaling = embedding_scaling
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
@@ -546,12 +548,16 @@ class HierarchicalLabelAttention(nn.Module):
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
         # Q1 ∈ R^n1xd where n1: number of labels of high-level categories and d: dim of latent doc representation
+        cat_embedding_matrix -= cat_embedding_matrix.mean()
+        cat_embedding_matrix /= (cat_embedding_matrix.std() * self._embedding_scaling)
         self.Q1 = nn.Linear(in_features=self._latent_doc_dim,
                             out_features=self._num_cats)
         self.Q1.weight.data = torch.tensor(cat_embedding_matrix, dtype=torch.float)
 
         # Level 2: low-level code labels
         # Q_codes ∈ R^n2xd where n2: number of labels of low-level codes and d: dim of latent doc representation
+        label_embedding_matrix -= label_embedding_matrix.mean()
+        label_embedding_matrix /= (label_embedding_matrix.std() * self._embedding_scaling)
         self.Q2 = nn.Linear(in_features=self._latent_doc_dim,
                             out_features=self._num_labels)
         self.Q2.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)

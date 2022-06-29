@@ -48,6 +48,7 @@ class LabelAttention(nn.Module):
                  num_labels: int,
                  embedding_dim: int,
                  latent_doc_dim: int,
+                 embedding_scaling: float,
                  label_embedding_matrix: np.array,
                  scale: bool = True,
                  multihead: bool = False,
@@ -55,6 +56,7 @@ class LabelAttention(nn.Module):
         super().__init__()
         self._num_labels = num_labels
         self._embedding_dim = embedding_dim
+        self._embedding_scaling = embedding_scaling
         self._latent_doc_dim = latent_doc_dim
         self._scale = scale
         self._multihead = multihead
@@ -62,6 +64,8 @@ class LabelAttention(nn.Module):
 
         # Init label embedding matrix by using linear layer
         # Q ∈ R^nxd_e where n: number of labels in |L| and d_e: embedding dimension of tokens
+        label_embedding_matrix -= label_embedding_matrix.mean()
+        label_embedding_matrix /= (label_embedding_matrix.std() * self._embedding_scaling)
         self.Q = nn.Linear(in_features=self._embedding_dim,
                            out_features=self._num_labels)
         self.Q.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
