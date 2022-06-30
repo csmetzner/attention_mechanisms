@@ -26,9 +26,8 @@ import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 from transformers import AutoTokenizer
-from transformers import AutoConfig
-config = AutoConfig.from_pretrained("emilyalsentzer/Bio_Discharge_Summary_BERT")
-tokenizer = AutoTokenizer.from_pretrained("emilyalsentzer/Bio_Discharge_Summary_BERT", model_max_length=512)
+
+tokenizer = AutoTokenizer.from_pretrained("yikuan8/Clinical-Longformer", model_max_length=4096)
 
 
 def rel2abs(x: str, flag_proc: bool = True) -> str:
