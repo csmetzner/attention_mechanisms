@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import BertForSequenceClassification
+from transformers import AutoConfig, AutoModel
 
 # custom libraries
 from attention_modules.attention_mechanisms import Attention
@@ -82,10 +82,10 @@ class TransformerModel(nn.Module):
         self._dropout_p = dropout_p
         self._embedding_scaling = embedding_scaling
 
-        if self._model_name == 'DischargeBERT':
-            self.transformer_model = BertForSequenceClassification.from_pretrained(
-                "emilyalsentzer/Bio_Discharge_Summary_BERT", num_labels=self._n_labels)
+        if self._model_name == 'ClinicalLongformer':
+            self.transformer_model = AutoModel.from_pretrained("yikuan8/Clinical-Longformer", num_labels=self._n_labels)
             self._latent_doc_dim = 768
+
 
         # Init dropout layer
         self.dropout_layer = nn.Dropout(p=self._dropout_p)
