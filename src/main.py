@@ -140,10 +140,7 @@ class ExperimentSuite:
                 self._model_args['model_kwargs']['n_cats'] = datasets_config[dataset]['n_cats']
 
         # Set max document length based on model - transformer model can only process 512 tokens
-        if self._transformer:
-            self._model_args['train_kwargs']['doc_max_len'] = 512
-        else:
-            self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
+        self._model_args['train_kwargs']['doc_max_len'] = datasets_config[dataset]['doc_max_len']
 
         # Set attention mechanism
         self._model_args['model_kwargs']['att_module'] = att_module
@@ -585,7 +582,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model',
                     required=True,
                     type=str,
-                    choices=['CNN', 'LSTM', 'BiLSTM', 'GRU', 'BiGRU', 'DischargeBERT'],
+                    choices=['CNN', 'LSTM', 'BiLSTM', 'GRU', 'BiGRU', 'ClinicalLongformer'],
                     help='Select a predefined model.')
 parser.add_argument('-d', '--dataset',
                     required=True,
