@@ -131,7 +131,8 @@ class LabelAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
             C = torch.bmm(A, V)
         else:
-            Q = self._mapping_layer(self.Q.weight.permute(1, 0)).permute(1, 0)
+            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q = self._mapping_layer(Q.permute(0, 2, 1)).permute(0, 2, 1)
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
