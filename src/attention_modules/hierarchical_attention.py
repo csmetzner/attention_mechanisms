@@ -314,6 +314,8 @@ class HierarchicalContextAttention(nn.Module):
 
         else:
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
+            Q2 = self._mapping_layer(self.Q2.weight.permute(1, 0)).permute(1, 0)
             if self._scale:
                 E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
@@ -616,12 +618,11 @@ class HierarchicalLabelAttention(nn.Module):
             where a_i represents the attention weight for the i-th label in the label space
 
         """
-        Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
-        Q2 = self._mapping_layer(self.Q2.weight.permute(1, 0)).permute(1, 0)
-
         if self._multihead:
-            Q1 = torch.unsqueeze(Q1, dim=0).repeat(K.size()[0], 1, 1)
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1)
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q1 = self._mapping_layer(Q1.permute(0, 2, 1)).permute(0, 2, 1)
+            Q2 = self._mapping_layer(Q2.permute(0, 2, 1)).permute(0, 2, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -643,7 +644,10 @@ class HierarchicalLabelAttention(nn.Module):
             A2 = F.softmax(input=E2, dim=-1)
             C2 = torch.bmm(A2, V)
         else:
-            Q2 = torch.unsqueeze(Q2, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1).to(device)
+            Q1 = self._mapping_layer(Q1.permute(0, 2, 1)).permute(0, 2, 1)
+            Q2 = self._mapping_layer(Q2.permute(0, 2, 1)).permute(0, 2, 1)
             if self._scale:
                 E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
             else:
