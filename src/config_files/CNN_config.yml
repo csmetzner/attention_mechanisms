@@ -23,5 +23,6 @@ train_kwargs:
   lr: 0.0001
   quartiles: False
   individual: False
+  parameter_tuning: False
 
 
