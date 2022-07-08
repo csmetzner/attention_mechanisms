@@ -122,7 +122,6 @@ def train(model: nn.Module,
 
         ### Validate model ###
         if val_loader is not None:
-            print('\nValidating current model with validation dataset.')
             scores = scoring(model=model,
                              data_loader=val_loader,
                              class_weights=class_weights,
@@ -139,7 +138,6 @@ def train(model: nn.Module,
             else:
                 patience_counter += 1
                 if patience_counter >= patience:
-                    print('Early stopping! No improvement in validation performance!', flush=True)
                     break
     # If no validation dataset available, save after every epoch
         else:
