@@ -30,9 +30,6 @@ from attention_modules.target_attention import TargetAttention
 from attention_modules.label_attention import LabelAttention
 from attention_modules.alternate_attention import AlternateAttention
 from attention_modules.hierarchical_attention import HierarchicalTargetAttention, HierarchicalLabelAttention
-from attention_modules.hierarchical_attention import HierarchicalContextAttention, HierarchicalDoubleAttention
-from attention_modules.context_attention import ContextAttention, ContextAttentionDiffInput
-from attention_modules.masked_attention import MaxMaskedAttention, RankedMaskedAttention
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
