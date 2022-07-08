@@ -95,10 +95,8 @@ def train(model: nn.Module,
             optimizer.zero_grad()
             if transformer:
                 input_ids = batch['input_ids'].to(device)
-                token_type_ids = batch['token_type_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
                 logits = model(input_ids=input_ids,
-                               token_type_ids=token_type_ids,
                                attention_mask=attention_mask)
                 Y = batch['labels'].to(device)
             else:
@@ -203,10 +201,8 @@ def scoring(model,
         for b, batch in enumerate(data_loader):
             if transformer:
                 input_ids = batch['input_ids'].to(device)
-                token_type_ids = batch['token_type_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
                 logits = model(input_ids=input_ids,
-                               token_type_ids=token_type_ids,
                                attention_mask=attention_mask)
                 Y = batch['labels'].to(device)
             else:

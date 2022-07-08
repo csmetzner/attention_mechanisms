@@ -34,9 +34,7 @@ class MimicData(Dataset):
     def __getitem__(self, idx):
         if self._transformer:
             sample = {'input_ids': self.X['input_ids'][idx],
-                      'token_type_ids': self.X['token_type_ids'][idx],
                       'attention_mask': self.X['attention_mask'][idx]}
-            #sample = {key: torch.tensor(val[idx] for key, val in self.X.items())}
             sample['labels'] = torch.tensor(self.Y[idx], dtype=torch.float)
         else:
             doc = self.X[idx]  # get sample at idx from pd dataframe

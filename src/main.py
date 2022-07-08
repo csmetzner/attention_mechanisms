@@ -64,7 +64,7 @@ class ExperimentSuite:
         self.seed = seed
         self._model_args = None
 
-        if self._model == 'DischargeBERT':
+        if self._model == 'ClinicalLongformer':
             self._transformer = True
         else:
             self._transformer = False
@@ -84,17 +84,17 @@ class ExperimentSuite:
             # Load token2idx mapped documents
             if self._transformer:
                 X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}_text.pkl'))
+                X.append(X_split)
                 Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
                 Y_tensor = torch.stack([torch.from_numpy(sample) for sample in Y_split.values])
-                X_split['labels'] = Y_tensor
-                X.append(X_split)
+                Y.append(Y_tensor)
             else:
                 X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}.pkl'))
                 X.append(X_split.values)
 
-            # Load ground-truth values
-            Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
-            Y.append(Y_split.values)
+                # Load ground-truth values
+                Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
+                Y.append(Y_split.values)
         return X, Y
 
     def fill_model_config(self,
@@ -284,13 +284,7 @@ class ExperimentSuite:
             model = CNN(**model_args['model_kwargs'])
         elif self._model == 'BiLSTM':
             model = RNN(**model_args['model_kwargs'])
-        elif self._model == 'LSTM':
-            model = RNN(**model_args['model_kwargs'])
-        elif self._model == 'BiGRU':
-            model = RNN(**model_args['model_kwargs'])
-        elif self._model == 'GRU':
-            model = RNN(**model_args['model_kwargs'])
-        elif self._model == 'DischargeBERT':
+        elif self._model == 'ClinicalLongformer':
             model = TransformerModel(**model_args['model_kwargs'])
         else:
             raise Exception('Invalid model type!')

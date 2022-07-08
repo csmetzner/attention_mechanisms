@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import AutoConfig, AutoModel
+from transformers import AutoConfig, AutoModelForMaskedLM, AutoModel
 
 # custom libraries
 from attention_modules.attention_mechanisms import Attention
@@ -83,9 +83,8 @@ class TransformerModel(nn.Module):
         self._embedding_scaling = embedding_scaling
 
         if self._model_name == 'ClinicalLongformer':
-            self.transformer_model = AutoModel.from_pretrained("yikuan8/Clinical-Longformer", num_labels=self._n_labels)
+            self.transformer_model = AutoModel.from_pretrained("yikuan8/Clinical-Longformer")
             self._latent_doc_dim = 768
-
 
         # Init dropout layer
         self.dropout_layer = nn.Dropout(p=self._dropout_p)
@@ -112,7 +111,6 @@ class TransformerModel(nn.Module):
 
     def forward(self,
                 input_ids: torch.Tensor,
-                token_type_ids: torch.Tensor,
                 attention_mask: torch.Tensor,
                 return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
@@ -136,7 +134,6 @@ class TransformerModel(nn.Module):
         """
         # Get latent document representation
         H = self.transformer_model(input_ids=input_ids,
-                                   token_type_ids=token_type_ids,
                                    attention_mask=attention_mask,
                                    return_dict=True,
                                    output_hidden_states=True)
