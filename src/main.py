@@ -710,8 +710,10 @@ def main():
         path_res_dir = os.path.join(root, f'results_{args.experiment_name}')
 
     if not os.path.exists(os.path.dirname(path_res_dir)):
-        os.makedirs(os.path.dirname(path_res_dir))
-
+        try:
+            os.makedirs(os.path.dirname(path_res_dir))
+        except OSError as error:
+            print(error)
     X, Y = exp.fetch_data()
 
     exp.fit_model(model_args=model_args,
