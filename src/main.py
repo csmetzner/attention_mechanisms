@@ -115,7 +115,8 @@ class ExperimentSuite:
                           window_sizes: List[int] = None,
                           quartiles: bool = None,
                           individual: bool = None,
-                          embedding_scaling: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          embedding_scaling: float = None,
+                          parameter_tuning: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
@@ -212,6 +213,8 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['individual'] = individual
         if embedding_scaling is not None:
             self._model_args['model_kwargs']['embedding_scaling'] = embedding_scaling
+        if parameter_tuning is not None:
+            self._model_args['train_kwargs']['parameter_tuning'] = parameter_tuning
         return self._model_args
 
     def fit_model(self,
@@ -310,35 +313,54 @@ class ExperimentSuite:
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
         model.to(device)
 
-        # Save the test_scores to csv file
-        print('Testing trained model')
+        if model_args['train_kwargs']['parameter_tuning']:
+            val_scores = scoring(model=model,
+                                 data_loader=test_loader,
+                                 transformer=self._transformer,
+                                 class_weights=None,
+                                 quartiles_indices=None,
+                                 individual=individual)
 
-        # Check if performance metrics should be computed for quartiles
-        if quartiles:
-            with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}', f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
-                quartiles_indices = pickle.load(f)
+            store_scores(scores=val_scores,
+                         model_type=self._model,
+                         dataset=self._dataset,
+                         seed= self.seed,
+                         train_kwargs=model_args['train_kwargs'],
+                         model_kwargs=model_args['model_kwargs'],
+                         path_res_dir=path_res_dir,
+                         model_name=model_name,
+                         quartiles=quartiles,
+                         individual=individual)
         else:
-            quartiles_indices = None
+            # Save the test_scores to csv file
+            print('Testing trained model')
 
-        test_scores = scoring(model=model,
-                              data_loader=test_loader,
-                              transformer=self._transformer,
-                              class_weights=None,
-                              quartiles_indices=quartiles_indices,
-                              individual=individual)
+            # Check if performance metrics should be computed for quartiles
+            if quartiles:
+                with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}', f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                    quartiles_indices = pickle.load(f)
+            else:
+                quartiles_indices = None
 
-        print(f'Test loss: {test_scores["loss"]}', flush=True)
+            test_scores = scoring(model=model,
+                                  data_loader=test_loader,
+                                  transformer=self._transformer,
+                                  class_weights=None,
+                                  quartiles_indices=quartiles_indices,
+                                  individual=individual)
 
-        store_scores(scores=test_scores,
-                     model_type=self._model,
-                     dataset=self._dataset,
-                     seed= self.seed,
-                     train_kwargs=model_args['train_kwargs'],
-                     model_kwargs=model_args['model_kwargs'],
-                     path_res_dir=path_res_dir,
-                     model_name=model_name,
-                     quartiles=quartiles,
-                     individual=individual)
+            print(f'Test loss: {test_scores["loss"]}', flush=True)
+
+            store_scores(scores=test_scores,
+                         model_type=self._model,
+                         dataset=self._dataset,
+                         seed= self.seed,
+                         train_kwargs=model_args['train_kwargs'],
+                         model_kwargs=model_args['model_kwargs'],
+                         path_res_dir=path_res_dir,
+                         model_name=model_name,
+                         quartiles=quartiles,
+                         individual=individual)
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
@@ -655,6 +677,9 @@ parser.add_argument('-ci', '--compute_individual',
 parser.add_argument('-es', '--embedding_scaling',
                     type=float,
                     help='Set scaler for token/label/category embedding normalization')
+parser.add_argument('-pt', '--parameter_tuning',
+                    type=parse_boolean,
+                    help='Flag indicating parameter tuning.')
 
 args = parser.parse_args()
 
@@ -696,7 +721,8 @@ def main():
                                        window_sizes=args.window_sizes,
                                        quartiles=args.compute_quartiles,
                                        individual=args.compute_individual,
-                                       embedding_scaling=args.embedding_scaling)
+                                       embedding_scaling=args.embedding_scaling,
+                                       parameter_tuning=args.parameter_tuning)
 
     if args.singularity:
         path_res_dir = f'mnt/results_{args.experiment_name}/'
