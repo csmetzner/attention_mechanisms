@@ -67,7 +67,7 @@ class CNN(nn.Module):
                  multihead: bool = False,
                  num_heads: int = None,
                  n_cats: int = None,
-                 embedding_scaling: float = 1,
+                 embedding_scaling: float = 20,
                  label_embedding_matrix: np.array = None,
                  cat_embedding_matrix: np.array = None,
                  code2cat_map: List[int] = None):
