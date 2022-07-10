@@ -23,6 +23,7 @@ from typing import Tuple, Union, List
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.multihead_attention import transpose_output
@@ -182,8 +183,8 @@ class Attention(nn.Module):
             Attention weight matrix
 
         """
-        K = self.K(H).permute(0, 2, 1)
-        V = self.V(H).permute(0, 2, 1)
+        K = F.elu(self.K(H).permute(0, 2, 1))
+        V = F.elu(self.V(H).permute(0, 2, 1))
         if self._multihead:
             C, A = self.attention_layer(K=K, V=V)
             C = transpose_output(X=C, num_heads=self._num_heads)
