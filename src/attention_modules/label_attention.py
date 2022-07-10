@@ -119,7 +119,7 @@ class LabelAttention(nn.Module):
         """
 
         if self._multihead:
-            Q = F.elu(torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1))
+            Q = torch.unsqueeze(self.Q.weight, dim=0).repeat(K.size()[0], 1, 1)
             Q = self._mapping_layer(Q.permute(0, 2, 1)).permute(0, 2, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)

@@ -119,8 +119,8 @@ class AlternateAttention(nn.Module):
         # where en_i represents the energy score for i-th attention vector; every other second value is set to 0
         # E ∈ R^nxl, where n: dimension of attention vector and l: sequence length
         if self._multihead:
-            Q1 = F.elu(torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1))
-            Q2 = F.elu(torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1))
+            Q1 = torch.unsqueeze(self.Q1.weight, dim=0).repeat(K.size()[0], 1, 1)
+            Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             K = transpose_qkv(self.W_k(K), self._num_heads)
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
@@ -154,8 +154,8 @@ class AlternateAttention(nn.Module):
             A = F.relu(A1 + A2)
             C = torch.bmm(A, V)
         else:
-            Q1 = F.elu(self.Q1.weight)
-            Q2 = F.elu(self.Q2.weight)
+            Q1 = self.Q1.weight
+            Q2 = self.Q2.weight
             if self._scale:
                 E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
                 E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
