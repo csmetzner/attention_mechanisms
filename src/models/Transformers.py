@@ -139,7 +139,7 @@ class TransformerModel(nn.Module):
                                    output_hidden_states=True)
         # retrieve hidden state of CLS token
         #H = H['hidden_states'][-1][:, 0, :].unsqueeze(dim=1).permute(0, 2, 1)
-        H = H['hidden_states'][-1].permute(0, 2, 1)
+        H = F.relu(H['hidden_states'][-1].permute(0, 2, 1))
 
         H = self.dropout_layer(H)
 
