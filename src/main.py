@@ -287,6 +287,8 @@ class ExperimentSuite:
             model = CNN(**model_args['model_kwargs'])
         elif self._model == 'BiLSTM':
             model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'BiGRU':
+            model = RNN(**model_args['model_kwargs'])
         elif self._model == 'ClinicalLongformer':
             model = TransformerModel(**model_args['model_kwargs'])
         else:
@@ -320,6 +322,8 @@ class ExperimentSuite:
                                  class_weights=None,
                                  quartiles_indices=None,
                                  individual=individual)
+
+            print(f'Val loss: {val_scores["loss"]}', flush=True)
 
             store_scores(scores=val_scores,
                          model_type=self._model,

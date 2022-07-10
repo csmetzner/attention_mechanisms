@@ -83,7 +83,7 @@ class TransformerModel(nn.Module):
         self._embedding_scaling = embedding_scaling
 
         if self._model_name == 'ClinicalLongformer':
-            self.transformer_model = AutoModel.from_pretrained("yikuan8/Clinical-Longformer")
+            self.transformer_model = AutoModel.from_pretrained(os.path.join('home', 'u0z', 'attention_mechanisms', 'Clinical-Longformer'))
             self._latent_doc_dim = 768
 
         # Init dropout layer
