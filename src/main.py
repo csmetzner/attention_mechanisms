@@ -116,7 +116,8 @@ class ExperimentSuite:
                           quartiles: bool = None,
                           individual: bool = None,
                           embedding_scaling: float = None,
-                          parameter_tuning: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          parameter_tuning: bool = None,
+                          learning_rate: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
@@ -215,6 +216,8 @@ class ExperimentSuite:
             self._model_args['model_kwargs']['embedding_scaling'] = embedding_scaling
         if parameter_tuning is not None:
             self._model_args['train_kwargs']['parameter_tuning'] = parameter_tuning
+        if learning_rate is not None:
+            self._model_args['train_kwargs']['lr'] = learning_rate
         return self._model_args
 
     def fit_model(self,
@@ -301,10 +304,10 @@ class ExperimentSuite:
 
         # Set up optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
-
+        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
-              optimizer=optimizer,
+              optimizer=scheduler,  #optimizer
               train_loader=train_loader,
               transformer=self._transformer,
               val_loader=val_loader,
@@ -684,6 +687,9 @@ parser.add_argument('-es', '--embedding_scaling',
 parser.add_argument('-pt', '--parameter_tuning',
                     type=parse_boolean,
                     help='Flag indicating parameter tuning.')
+parser.add_argument('-lr', '--learning_rate',
+                    type=float,
+                    help='Set learning rate for optimizer.')
 
 args = parser.parse_args()
 
@@ -726,7 +732,8 @@ def main():
                                        quartiles=args.compute_quartiles,
                                        individual=args.compute_individual,
                                        embedding_scaling=args.embedding_scaling,
-                                       parameter_tuning=args.parameter_tuning)
+                                       parameter_tuning=args.parameter_tuning,
+                                       learning_rate=args.learning_rate)
 
     if args.singularity:
         path_res_dir = f'mnt/results_{args.experiment_name}/'
