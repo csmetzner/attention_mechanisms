@@ -34,6 +34,7 @@ def train(model: nn.Module,
           train_loader,
           transformer: bool = False,
           val_loader=None,
+          scheduler=None,
           class_weights: np.array = None,
           save_name: str = None):
     """
@@ -118,6 +119,7 @@ def train(model: nn.Module,
 
             #if b == 1:
             #    break
+        scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
         ### Validate model ###

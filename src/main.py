@@ -307,10 +307,11 @@ class ExperimentSuite:
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
-              optimizer=scheduler,  #optimizer
+              optimizer=optimizer
               train_loader=train_loader,
               transformer=self._transformer,
               val_loader=val_loader,
+              scheduler=scheduler,
               class_weights=None,
               save_name=save_name)
 
