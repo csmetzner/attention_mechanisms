@@ -3,7 +3,7 @@ model_kwargs:
   n_labels: ~
   n_cats: ~
   embedding_dim: 100
-  embedding_scaling: 20
+  embedding_scaling: 10
   token_embedding_matrix: ~
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
@@ -19,7 +19,7 @@ train_kwargs:
   doc_max_len: ~
   batch_size: 32
   epochs: 100
-  patience: 20
+  patience: 10
   lr: 0.0001
   quartiles: False
   individual: False
