@@ -304,10 +304,12 @@ class ExperimentSuite:
 
         # Set up optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
-        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
+        if not self._transformer:
+            scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
+       
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
-              optimizer=optimizer
+              optimizer=optimizer,
               train_loader=train_loader,
               transformer=self._transformer,
               val_loader=val_loader,

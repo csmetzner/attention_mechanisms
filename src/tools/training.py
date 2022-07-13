@@ -119,7 +119,8 @@ def train(model: nn.Module,
 
             #if b == 1:
             #    break
-        scheduler.step()
+        if not transformer:
+            scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
         ### Validate model ###
