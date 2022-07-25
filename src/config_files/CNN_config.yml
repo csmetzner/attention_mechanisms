@@ -3,14 +3,14 @@ model_kwargs:
   n_labels: ~
   n_cats: ~
   embedding_dim: 100
-  embedding_scaling: 1
+  embedding_scaling: 5
   token_embedding_matrix: ~
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
   code2cat_map: ~
   window_sizes: [3, 4, 5]
-  n_filters: [1000, 1000, 1000]
-  dropout_p: 0.3
+  n_filters: [300, 300, 300]
+  dropout_p: 0.5
   att_module: ~
   scale: True
   multihead: False
