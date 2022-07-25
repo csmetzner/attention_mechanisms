@@ -127,8 +127,8 @@ class AlternateAttention(nn.Module):
             Q2 = transpose_qkv(self.W_q2(Q2), self._num_heads)
 
             if self._scale:
-                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
-                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
 
             else:
                 E1 = torch.bmm(Q1, K.permute(0, 2, 1))
@@ -157,8 +157,8 @@ class AlternateAttention(nn.Module):
             Q1 = self.Q1.weight
             Q2 = self.Q2.weight
             if self._scale:
-                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
-                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
+                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E1 = Q1.matmul(K.permute(0, 2, 1))
                 E2 = Q2.matmul(K.permute(0, 2, 1))

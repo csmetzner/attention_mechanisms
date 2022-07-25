@@ -138,7 +138,7 @@ class HierarchicalTargetAttention(nn.Module):
             Q2 = transpose_qkv(self.W_q2(Q2), self._num_heads)
 
             if self._scale:
-                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E1 = torch.bmm(Q1, K.permute(0, 2, 1))
             A1 = F.softmax(input=E1, dim=-1)
@@ -148,7 +148,7 @@ class HierarchicalTargetAttention(nn.Module):
                 Q2[:, i, :] += C1[:, code2cat_idx, :]
 
             if self._scale:
-                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E2 = torch.bmm(Q2, K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
@@ -157,7 +157,7 @@ class HierarchicalTargetAttention(nn.Module):
         else:
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
-                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E1 = self.Q1.weight.matmul(K.permute(0, 2, 1))
 
@@ -169,7 +169,7 @@ class HierarchicalTargetAttention(nn.Module):
                 Q2[:, i, :] += C1[:, code2cat_idx, :]
 
             if self._scale:
-                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E2 = Q2.matmul(K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
@@ -310,7 +310,7 @@ class HierarchicalLabelAttention(nn.Module):
             Q1 = transpose_qkv(self.W_q1(Q1), self._num_heads)
             Q2 = transpose_qkv(self.W_q2(Q2), self._num_heads)
             if self._scale:
-                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = torch.bmm(Q1, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E1 = torch.bmm(Q1, K.permute(0, 2, 1))
             A1 = F.softmax(input=E1, dim=-1)
@@ -320,7 +320,7 @@ class HierarchicalLabelAttention(nn.Module):
                 Q2[:, i, :] += C1[:, code2cat_idx, :]
 
             if self._scale:
-                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E2 = torch.bmm(Q2, K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
@@ -330,7 +330,7 @@ class HierarchicalLabelAttention(nn.Module):
             Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
             Q2 = self._mapping_layer(Q2.permute(0, 2, 1)).permute(0, 2, 1)
             if self._scale:
-                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E1 = Q1.matmul(K.permute(0, 2, 1))
 
@@ -342,7 +342,7 @@ class HierarchicalLabelAttention(nn.Module):
                 Q2[:, i, :] += C1[:, code2cat_idx, :]
 
             if self._scale:
-                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E2 = Q2.matmul(K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)

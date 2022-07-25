@@ -125,7 +125,7 @@ class LabelAttention(nn.Module):
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
             if self._scale:
-                E = torch.bmm(Q, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = torch.bmm(Q, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E = torch.bmm(Q, K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
@@ -133,7 +133,7 @@ class LabelAttention(nn.Module):
         else:
             Q = self._mapping_layer(self.Q.weight.permute(1, 0)).permute(1, 0)
             if self._scale:
-                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E = Q.matmul(K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
