@@ -110,7 +110,7 @@ class TargetAttention(nn.Module):
             V = transpose_qkv(self.W_v(V), self._num_heads)
             Q = transpose_qkv(self.W_q(Q), self._num_heads)
             if self._scale:
-                E = torch.bmm(Q, K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = torch.bmm(Q, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E = torch.bmm(Q, K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
@@ -121,7 +121,7 @@ class TargetAttention(nn.Module):
             # E ∈ R^nxl where n: number of labels and l: sequence length
             Q = self.Q.weight
             if self._scale:
-                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._embedding_dim)
+                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E = Q.matmul(K.permute(0, 2, 1))
 
