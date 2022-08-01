@@ -183,7 +183,7 @@ class RNN(nn.Module):
 
         # Compute document representations using the Bi-LSTM
         H = self._RNN(word_embeds)
-        H = F.tanh(H[0].permute(0, 2, 1))
+        H = H[0].permute(0, 2, 1)
         H = self.dropout_layer(H)
 
         # Add attention module here

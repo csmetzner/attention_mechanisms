@@ -184,16 +184,10 @@ class CNN(nn.Module):
 
         # Compute document embeddings contained in matrix H
         H = self.dropout_layer(concat)
-        #logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1).sum(dim=-1)
 
         # Add attention module here
         C, att_scores = self.attention_layer(H=H)
-
-        if self._att_module == 'self':
-            # Necessary to match output with |L| ground-truth labels
-            logits = self.output_layer(C).sum(dim=1)
-        else:
-            logits = self.output_layer(C).sum(dim=2)  # Consider .sum(dim=1) - depends on number of attention vectors
+        logits = self.output_layer(C).sum(dim=-1)  # Consider .sum(dim=1) - depends on number of attention vectors
         if return_doc_embeds:
             return logits, H
         return logits
