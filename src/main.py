@@ -48,7 +48,8 @@ print('Done!', flush=True)
 # - Physionet MIMIC-III  - Multilabel text classification
 
 # Pytorch set device to 'cuda'/GPUs if available otherwise use available CPUs
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
+device = ('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'The experiment uses the following device: {device}', flush=True)
 
 
