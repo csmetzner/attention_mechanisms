@@ -142,14 +142,10 @@ class TransformerModel(nn.Module):
         H = self.dropout_layer(H)
 
         # Add attention module here
-        C, att_scores = self.attention_layer(H=H)
-
-        if self._att_module == 'self':
-            # Necessary to match output with |L| ground-truth labels
-            logits = self.output_layer(C).sum(dim=1)
+        if self._att_module == 'max_pool':
+            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
+            logits = F.adaptive_max_pool1d(logits, self._n_labels).sum(dim=-1)
         else:
-            logits = self.output_layer(C).sum(dim=2)  # Consider .sum(dim=1) - depends on number of attention vectors
-
-        if return_doc_embeds:
-            return logits, H
+            C, att_scores = self.attention_layer(H=H)
+            logits = self.output_layer(C).sum(dim=-1)
         return logits

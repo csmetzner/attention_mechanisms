@@ -624,7 +624,7 @@ parser.add_argument('-am', '--attention_module',
                     choices=['target', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label',
                              'hierarchical_context', 'hierarchical_double_attention',
                              'context', 'context_diff',
-                             'max_masked', 'rank_masked'],
+                             'max_masked', 'rank_masked', 'single', 'max_pool'],
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')

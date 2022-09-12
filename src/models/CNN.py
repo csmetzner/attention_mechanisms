@@ -116,18 +116,19 @@ class CNN(nn.Module):
             self.conv_layers.append(conv_layer)
 
         # Init Attention Layer
-        self.attention_layer = Attention(num_labels=self._n_labels,
-                                         embedding_dim=self._embedding_dim,
-                                         latent_doc_dim=np.sum(self._n_filters),
-                                         att_module=self._att_module,
-                                         scale=self._scale,
-                                         multihead=self._multihead,
-                                         num_heads=self._num_heads,
-                                         num_cats=self._n_cats,
-                                         embedding_scaling=self._embedding_scaling,
-                                         label_embedding_matrix=self._label_embedding_matrix,
-                                         cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map)
+        if self._att_module != 'max_pool':
+            self.attention_layer = Attention(num_labels=self._n_labels,
+                                             embedding_dim=self._embedding_dim,
+                                             latent_doc_dim=np.sum(self._n_filters),
+                                             att_module=self._att_module,
+                                             scale=self._scale,
+                                             multihead=self._multihead,
+                                             num_heads=self._num_heads,
+                                             num_cats=self._n_cats,
+                                             embedding_scaling=self._embedding_scaling,
+                                             label_embedding_matrix=self._label_embedding_matrix,
+                                             cat_embedding_matrix=self._cat_embedding_matrix,
+                                             code2cat_map=self._code2cat_map)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
@@ -185,9 +186,13 @@ class CNN(nn.Module):
         # Compute document embeddings contained in matrix H
         H = self.dropout_layer(concat)
 
+        print(self.output_layer.weight.size())
+
         # Add attention module here
-        C, att_scores = self.attention_layer(H=H)
-        logits = self.output_layer(C).sum(dim=-1)  # Consider .sum(dim=1) - depends on number of attention vectors
-        if return_doc_embeds:
-            return logits, H
+        if self._att_module == 'max_pool':
+            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
+            logits = F.adaptive_max_pool1d(logits, self._n_labels).sum(dim=-1)
+        else:
+            C, att_scores = self.attention_layer(H=H)
+            logits = self.output_layer(C).sum(dim=-1)  # Consider .sum(dim=1) - depends on number of attention vectors
         return logits
