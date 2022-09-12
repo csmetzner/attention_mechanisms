@@ -31,6 +31,7 @@ from attention_modules.target_attention import TargetAttention
 from attention_modules.label_attention import LabelAttention
 from attention_modules.alternate_attention import AlternateAttention
 from attention_modules.hierarchical_attention import HierarchicalTargetAttention, HierarchicalLabelAttention
+from attention_modules.single_attention import SingleAttention
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -165,6 +166,14 @@ class Attention(nn.Module):
                                                               scale=self._scale,
                                                               multihead=self._multihead,
                                                               num_heads=self._num_heads)
+
+        elif self._att_module == 'single':
+            self.attention_layer = SingleAttention(num_labels=self._num_labels,
+                                                   embedding_dim=self._embedding_dim,
+                                                   latent_doc_dim=self._latent_doc_dim,
+                                                   scale=self._scale,
+                                                   multihead=self._multihead,
+                                                   num_heads=self._num_heads)
 
     def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
         """
