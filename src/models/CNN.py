@@ -192,6 +192,6 @@ class CNN(nn.Module):
             logits = F.adaptive_max_pool1d(logits, self._n_labels).sum(dim=-1)
         else:
             C, att_scores = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.final.bias)
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
             #ogits = self.output_layer(C).sum(dim=-1)  # Consider .sum(dim=1) - depends on number of attention vectors
         return logits
