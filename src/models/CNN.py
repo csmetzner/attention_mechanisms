@@ -186,8 +186,6 @@ class CNN(nn.Module):
         # Compute document embeddings contained in matrix H
         H = self.dropout_layer(concat)
 
-        print(self.output_layer.weight.size())
-
         # Add attention module here
         if self._att_module == 'max_pool':
             logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
