@@ -190,7 +190,8 @@ class RNN(nn.Module):
         # Add attention module here
         if self._att_module == 'max_pool':
             logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
-            logits = F.adaptive_max_pool1d(logits, self._n_labels).sum(dim=-1)
+            logits = F.adaptive_max_pool1d(logits, 1)
+            logits = torch.flatten(logits, start_dim=1)
         else:
             C, att_scores = self.attention_layer(H=H)
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
