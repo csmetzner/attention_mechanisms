@@ -27,11 +27,10 @@ import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.multihead_attention import transpose_output
+from attention_modules.random_attention import RandomAttention
+from attention_modules.pretrained_attention import PretrainedAttention
+from attention_modules.hierarchical_attention import HierarchicalRandomAttention, HierarchicalPretrainedAttention
 from attention_modules.target_attention import TargetAttention
-from attention_modules.label_attention import LabelAttention
-from attention_modules.alternate_attention import AlternateAttention
-from attention_modules.hierarchical_attention import HierarchicalTargetAttention, HierarchicalLabelAttention
-from attention_modules.single_attention import SingleAttention
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -122,31 +121,17 @@ class Attention(nn.Module):
             self.MH_output = nn.Linear(in_features=self._latent_doc_dim,
                                        out_features=self._latent_doc_dim)
 
-        if self._att_module == 'target':
-            self.attention_layer = TargetAttention(num_labels=self._num_labels,
+        # Label attention with different query initialization strategies
+        # |L| queries create |L| label-specific latent document representations
+        if self._att_module == 'random':
+            self.attention_layer = RandomAttention(num_labels=self._num_labels,
                                                    embedding_dim=self._embedding_dim,
                                                    latent_doc_dim=self._latent_doc_dim,
                                                    scale=self._scale,
                                                    multihead=self._multihead,
                                                    num_heads=self._num_heads)
-        elif self._att_module == 'label':
-            self.attention_layer = LabelAttention(num_labels=self._num_labels,
-                                                  embedding_dim=self._embedding_dim,
-                                                  latent_doc_dim=self._latent_doc_dim,
-                                                  embedding_scaling=self._embedding_scaling,
-                                                  label_embedding_matrix=self._label_embedding_matrix,
-                                                  scale=self._scale,
-                                                  multihead=self._multihead,
-                                                  num_heads=self._num_heads)
-        elif self._att_module == 'alternate':
-            self.attention_layer = AlternateAttention(num_labels=self._num_labels,
-                                                      embedding_dim=self._embedding_dim,
-                                                      latent_doc_dim=self._latent_doc_dim,
-                                                      scale=self._scale,
-                                                      multihead=self._multihead,
-                                                      num_heads=self._num_heads)
-        elif self._att_module == 'hierarchical_target':
-            self.attention_layer = HierarchicalTargetAttention(num_labels=self._num_labels,
+        elif self._att_module == 'hierarchical_random':
+            self.attention_layer = HierarchicalRandomAttention(num_labels=self._num_labels,
                                                                num_cats=self._num_cats,
                                                                embedding_dim=self._embedding_dim,
                                                                latent_doc_dim=self._latent_doc_dim,
@@ -154,21 +139,32 @@ class Attention(nn.Module):
                                                                scale=self._scale,
                                                                multihead=self._multihead,
                                                                num_heads=self._num_heads)
-        elif self._att_module == 'hierarchical_label':
-            self.attention_layer = HierarchicalLabelAttention(num_labels=self._num_labels,
-                                                              num_cats=self._num_cats,
-                                                              embedding_dim=self._embedding_dim,
-                                                              latent_doc_dim=self._latent_doc_dim,
-                                                              code2cat_map=self._code2cat_map,
-                                                              embedding_scaling=self._embedding_scaling,
-                                                              cat_embedding_matrix=self._cat_embedding_matrix,
-                                                              label_embedding_matrix=self._label_embedding_matrix,
-                                                              scale=self._scale,
-                                                              multihead=self._multihead,
-                                                              num_heads=self._num_heads)
+        elif self._att_module == 'pretrained':
+            self.attention_layer = PretrainedAttention(num_labels=self._num_labels,
+                                                       embedding_dim=self._embedding_dim,
+                                                       latent_doc_dim=self._latent_doc_dim,
+                                                       embedding_scaling=self._embedding_scaling,
+                                                       label_embedding_matrix=self._label_embedding_matrix,
+                                                       scale=self._scale,
+                                                       multihead=self._multihead,
+                                                       num_heads=self._num_heads)
 
-        elif self._att_module == 'single':
-            self.attention_layer = SingleAttention(num_labels=self._num_labels,
+        elif self._att_module == 'hierarchical_pretrained':
+            self.attention_layer = HierarchicalPretrainedAttention(num_labels=self._num_labels,
+                                                                   num_cats=self._num_cats,
+                                                                   embedding_dim=self._embedding_dim,
+                                                                   latent_doc_dim=self._latent_doc_dim,
+                                                                   code2cat_map=self._code2cat_map,
+                                                                   embedding_scaling=self._embedding_scaling,
+                                                                   cat_embedding_matrix=self._cat_embedding_matrix,
+                                                                   label_embedding_matrix=self._label_embedding_matrix,
+                                                                   scale=self._scale,
+                                                                   multihead=self._multihead,
+                                                                   num_heads=self._num_heads)
+
+        # target attention using a single query to create one latent document representation
+        elif self._att_module == 'target':
+            self.attention_layer = TargetAttention(num_labels=self._num_labels,
                                                    embedding_dim=self._embedding_dim,
                                                    latent_doc_dim=self._latent_doc_dim,
                                                    scale=self._scale,
@@ -201,5 +197,4 @@ class Attention(nn.Module):
             C = self.MH_output(C)
         else:
             C, A = self.attention_layer(K=K, V=V)
-
         return C, A

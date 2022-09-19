@@ -1,8 +1,8 @@
 """
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
-    @created: 09/12/2022
-    @last modified: 09/12/2022
+    @created: 05/31/2022
+    @last modified: 05/31/2022
 
 
 
@@ -21,7 +21,8 @@ from attention_modules.multihead_attention import transpose_qkv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-class SingleAttention(nn.Module):
+
+class RandomAttention(nn.Module):
     """
     Target attention with trainable query matrices.
 
@@ -47,6 +48,7 @@ class SingleAttention(nn.Module):
                  scale: bool = False,
                  multihead: bool = False,
                  num_heads: int = None):
+        print('Attention mechanism: random label attention')
 
         super().__init__()
         self._num_labels = num_labels
@@ -59,7 +61,7 @@ class SingleAttention(nn.Module):
 
         # Initialze query embedding matrix
         self.Q = nn.Linear(in_features=self._latent_doc_dim,
-                           out_features=1)
+                           out_features=self._num_labels)
         nn.init.xavier_uniform_(self.Q.weight)
 
         # If multihead-attention then init additional weight layers
@@ -120,7 +122,6 @@ class SingleAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             Q = self.Q.weight
-
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
@@ -135,9 +136,4 @@ class SingleAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-
-            # This type of attention mechanism uses a single context vector (document representation) for prediction
-            # We need to repeat that vector for each label; i.e., output layer predicts on the same document vector for
-            # each label
-            C = C.repeat(1, self._num_labels, 1)
         return C, A

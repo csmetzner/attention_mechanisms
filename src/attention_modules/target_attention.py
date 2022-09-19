@@ -1,8 +1,8 @@
 """
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
-    @created: 05/31/2022
-    @last modified: 05/31/2022
+    @created: 09/12/2022
+    @last modified: 09/12/2022
 
 
 
@@ -49,6 +49,7 @@ class TargetAttention(nn.Module):
                  num_heads: int = None):
 
         super().__init__()
+        print('Attention mechanisms: target attention')
         self._num_labels = num_labels
         self._embedding_dim = embedding_dim
         self._latent_doc_dim = latent_doc_dim
@@ -59,7 +60,7 @@ class TargetAttention(nn.Module):
 
         # Initialze query embedding matrix
         self.Q = nn.Linear(in_features=self._latent_doc_dim,
-                           out_features=self._num_labels)
+                           out_features=1)
         nn.init.xavier_uniform_(self.Q.weight)
 
         # If multihead-attention then init additional weight layers

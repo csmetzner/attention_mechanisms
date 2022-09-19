@@ -20,7 +20,8 @@ from attention_modules.multihead_attention import transpose_qkv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-class HierarchicalTargetAttention(nn.Module):
+
+class HierarchicalRandomAttention(nn.Module):
     """
     Hierarchical target attention mechanism inspired by Galassi et al. (2021) - Attention in Natural Language Processing
     (source: https://arxiv.org/abs/1902.02181) representation of hierarchical attention proposed by Zhao and Zhang
@@ -58,6 +59,8 @@ class HierarchicalTargetAttention(nn.Module):
                  num_heads: int = None):
 
         super().__init__()
+        print('Attention mechanisms: hierarchical random label attention')
+
         self._num_labels = num_labels
         self._num_cats = num_cats
         self._embedding_dim = embedding_dim
@@ -181,7 +184,7 @@ class HierarchicalTargetAttention(nn.Module):
         return C2, A2
 
 
-class HierarchicalLabelAttention(nn.Module):
+class HierarchicalPretrainedAttention(nn.Module):
     """
     Hierarchical target attention mechanism inspired by Galassi et al. (2021) - Attention in Natural Language Processing
     (source: https://arxiv.org/abs/1902.02181) representation of hierarchical attention proposed by Zhao and Zhang
@@ -219,6 +222,8 @@ class HierarchicalLabelAttention(nn.Module):
                  num_heads: int = None):
 
         super().__init__()
+        print('Attention mechanism: hierarchical pretrained label attention')
+
         self._num_labels = num_labels
         self._num_cats = num_cats
         self._embedding_dim = embedding_dim

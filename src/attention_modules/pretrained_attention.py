@@ -22,7 +22,8 @@ from attention_modules.multihead_attention import transpose_qkv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-class LabelAttention(nn.Module):
+
+class PretrainedAttention(nn.Module):
     """
     Label Attention with pretrained label embedding matrix generated using Doc2Vec.
 
@@ -54,6 +55,8 @@ class LabelAttention(nn.Module):
                  multihead: bool = False,
                  num_heads: int = None):
         super().__init__()
+        print('Attention mechanism: pretrained label attention')
+
         self._num_labels = num_labels
         self._embedding_dim = embedding_dim
         self._embedding_scaling = embedding_scaling
