@@ -136,7 +136,7 @@ class CNN(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         self.output_layer.bias.data.fill_(0.01)
 
-    def forward(self, docs: torch.Tensor, return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+    def forward(self, docs: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of CNN model
 
@@ -184,14 +184,31 @@ class CNN(nn.Module):
         concat = torch.cat(conv_outs, 1)
 
         # Compute document embeddings contained in matrix H
-        H = self.dropout_layer(concat)
+        H = self.dropout_layer(concat)  # [batch_size, hidden_dim, sequence_length]
 
         # Add attention module here
-        if self._att_module == 'max_pool':
-            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
-            logits = F.adaptive_max_pool1d(logits, 1)
-            logits = torch.flatten(logits, start_dim=1)
+        # All output_layers were initialized with in_features=hidden_dim and out_features=num_labels
+        if self._att_module == 'baseline':
+            # Max-pool operation extracts the token with the largest logit
+            print(H.size())
+            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)  # [batch_size, num_labels, sequence_len]
+            logits = F.adaptive_max_pool1d(logits, 1)  # [batch_size, num_labels, 1]
+            logits = torch.flatten(logits, start_dim=1)  # [batch_size, num_labels]
+
+        elif self._att_module == 'target':
+            # target attention uses a one query vector to learn a single latent document representation
+            C, A = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
+            logits = self.output_layer(C)  # [batch_size, 1, num_labels]
+            logits = torch.squeeze(logits)  # [batch_size, num_labels]
+
         else:
-            C, att_scores = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
+            # Implementation of label attention following:
+            # https://github.com/jamesmullenbach/caml-mimic/blob/master/learn/models.py - line 188
+
+            # Label attention uses |L| query vectors to learn |L| latent document representations, where |L| is the
+            # number of labels in the label space.
+            C, A = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+
+        print(logits.size())
         return logits

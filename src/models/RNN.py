@@ -149,7 +149,7 @@ class RNN(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         self.output_layer.bias.data.fill_(0.01)
 
-    def forward(self, docs: torch.Tensor, return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+    def forward(self, docs: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of RNN models
 
@@ -183,16 +183,31 @@ class RNN(nn.Module):
         word_embeds = torch.mul(word_embeds, mask_words.type(word_embeds.dtype))
 
         # Compute document representations using the Bi-LSTM
-        H = self._RNN(word_embeds)
-        H = H[0].permute(0, 2, 1)
-        H = self.dropout_layer(H)
-
+        H, H_last = self._RNN(word_embeds)  # H = [batch_size, sequence_length, hidden_dim]
         # Add attention module here
-        if self._att_module == 'max_pool':
-            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
-            logits = F.adaptive_max_pool1d(logits, 1)
-            logits = torch.flatten(logits, start_dim=1)
+        if self._att_module == 'baseline':
+            # H = H_last.permute(1, 0, 2)  # this line is used if baseline is last and first hidden state of both layers
+            # Average output of RNN
+            H = torch.mean(H, dim=1)
+            H = self.dropout_layer(H)
+            logits = self.output_layer(H)
+        elif self._att_module == 'target':
+            # target attention uses a one query vector to learn a single latent document representation
+            H = self.dropout_layer(H)
+            C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+            logits = self.output_layer(C)  # [batch_size, 1, num_labels]
+            logits = torch.squeeze(logits)  # [batch_size, num_labels]
+
         else:
-            C, att_scores = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
+            # Implementation of label attention following:
+            # https://github.com/jamesmullenbach/caml-mimic/blob/master/learn/models.py - line 188
+
+            # Label attention uses |L| query vectors to learn |L| latent document representations, where |L| is the
+            # number of labels in the label space.
+            H = self.dropout_layer(H)
+
+            C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+
+        print(logits.size())
         return logits

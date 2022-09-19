@@ -83,7 +83,9 @@ class TransformerModel(nn.Module):
         self._embedding_scaling = embedding_scaling
 
         if self._model_name == 'ClinicalLongformer':
-            self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
+            #self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
+            self.transformer_model = AutoModel.from_pretrained(
+                "/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/attention_mechanisms/src/models/Clinical-Longformer")
             self._latent_doc_dim = 768
 
         # Init dropout layer
@@ -111,8 +113,7 @@ class TransformerModel(nn.Module):
 
     def forward(self,
                 input_ids: torch.Tensor,
-                attention_mask: torch.Tensor,
-                return_doc_embeds: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+                attention_mask: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of transformer model
 
@@ -137,17 +138,29 @@ class TransformerModel(nn.Module):
                                    attention_mask=attention_mask,
                                    return_dict=True,
                                    output_hidden_states=True)
-        # retrieve hidden state of CLS token
-        H = H['hidden_states'][-1].permute(0, 2, 1)
-        H = self.dropout_layer(H)
+        # Retrieve latent document representation of last layer in transformer model
+        H = H['hidden_states'][-1]
+        H = self.dropout_layer(H)  # [batch_size, sequence_len == 4096, hidden_dim == 768]
 
-        # Add attention module here
-        if self._att_module == 'max_pool':
-            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)
-            logits = F.adaptive_max_pool1d(logits, 1)
-            logits = torch.flatten(logits, start_dim=1)
+        if self._att_module == 'baseline':
+            # The baseline approach of the clinical longformer uses the latent document representation of the first
+            # token of the sequence [<s>]
+            H = H[:, 0, :]  # [batch_size, hidden_dim]
+            logits = self.output_layer(H)  # [batch_size, num_labels]
+
+        elif self._att_module == 'target':
+            # target attention uses a one query vector to learn a single latent document representation
+            C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+            logits = self.output_layer(C)  # [batch_size, 1, num_labels]
+            logits = torch.squeeze(logits)  # [batch_size, num_labels]
+
         else:
-            C, att_scores = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
+            # Implementation of label attention following:
+            # https://github.com/jamesmullenbach/caml-mimic/blob/master/learn/models.py - line 188
 
+            # Label attention uses |L| query vectors to learn |L| latent document representations, where |L| is the
+            # number of labels in the label space.
+
+            C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
         return logits
