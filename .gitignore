@@ -1,5 +1,6 @@
 /data/raw
 /data/processed
+/data/external
 
 
 # ignore testing python script
@@ -18,3 +19,5 @@ data/external/.DS_Store
 src/attention_modules/__pycache__/
 src/models/__pycache__/
 src/tools/__pycache__/
+src/old_code
+src/models/Clinical-Longformer
