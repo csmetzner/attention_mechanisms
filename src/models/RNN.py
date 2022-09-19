@@ -195,5 +195,4 @@ class RNN(nn.Module):
         else:
             C, att_scores = self.attention_layer(H=H)
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
-            #logits = self.output_layer(C).sum(dim=-1)
         return logits

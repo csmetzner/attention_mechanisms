@@ -193,9 +193,5 @@ class CNN(nn.Module):
             logits = torch.flatten(logits, start_dim=1)
         else:
             C, att_scores = self.attention_layer(H=H)
-            print(f'Weights size: {self.output_layer.weight.size()}')
-            print(f'C size: {C.size()}')
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
-            print(f'Logits size: {logits.size()}')
-            #logits = self.output_layer(C).sum(dim=-1)  # Consider .sum(dim=1) - depends on number of attention vectors
         return logits
