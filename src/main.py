@@ -65,7 +65,7 @@ class ExperimentSuite:
         self.seed = seed
         self._model_args = None
 
-        if self._model == 'ClinicalLongformer':
+        if self._model == 'CLF':
             self._transformer = True
         else:
             self._transformer = False
@@ -169,12 +169,12 @@ class ExperimentSuite:
                 code2cat_map = pickle.load(f)
             self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
 
-        if att_module == 'label':
+        if att_module == 'pretrained':
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
 
-        if att_module == 'hierarchical_label':
+        if att_module == 'hierarchical_pretrained':
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
@@ -293,7 +293,7 @@ class ExperimentSuite:
             model = RNN(**model_args['model_kwargs'])
         elif self._model == 'BiGRU':
             model = RNN(**model_args['model_kwargs'])
-        elif self._model == 'ClinicalLongformer':
+        elif self._model == 'CLF':
             model = TransformerModel(**model_args['model_kwargs'])
         else:
             raise Exception('Invalid model type!')
@@ -611,7 +611,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model',
                     required=True,
                     type=str,
-                    choices=['CNN', 'LSTM', 'BiLSTM', 'GRU', 'BiGRU', 'ClinicalLongformer'],
+                    choices=['CNN', 'BiLSTM', 'BiGRU', 'CLF'],
                     help='Select a predefined model.')
 parser.add_argument('-d', '--dataset',
                     required=True,
@@ -621,10 +621,9 @@ parser.add_argument('-d', '--dataset',
 parser.add_argument('-am', '--attention_module',
                     required=True,
                     type=str,
-                    choices=['target', 'self', 'label', 'alternate', 'hierarchical_target', 'hierarchical_label',
-                             'hierarchical_context', 'hierarchical_double_attention',
-                             'context', 'context_diff',
-                             'max_masked', 'rank_masked', 'single', 'max_pool'],
+                    choices=['random', 'hierarchical_random',
+                             'pretrained', 'hierarchical_pretrained',
+                             'target', 'baseline'],
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
