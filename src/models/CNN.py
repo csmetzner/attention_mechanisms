@@ -190,7 +190,6 @@ class CNN(nn.Module):
         # All output_layers were initialized with in_features=hidden_dim and out_features=num_labels
         if self._att_module == 'baseline':
             # Max-pool operation extracts the token with the largest logit
-            print(H.size())
             logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)  # [batch_size, num_labels, sequence_len]
             logits = F.adaptive_max_pool1d(logits, 1)  # [batch_size, num_labels, 1]
             logits = torch.flatten(logits, start_dim=1)  # [batch_size, num_labels]
@@ -209,6 +208,4 @@ class CNN(nn.Module):
             # number of labels in the label space.
             C, A = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-
-        print(logits.size())
         return logits

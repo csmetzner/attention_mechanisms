@@ -208,6 +208,4 @@ class RNN(nn.Module):
 
             C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-
-        print(logits.size())
         return logits
