@@ -2,7 +2,7 @@ model: 'BiLSTM'
 model_kwargs:
   n_labels: ~
   n_cats: ~
-  embedding_dim: 100
+  embedding_dim: 200
   embedding_scaling: 0.5
   token_embedding_matrix: ~
   label_embedding_matrix: ~
