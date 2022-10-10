@@ -198,7 +198,7 @@ class CNN(nn.Module):
             # target attention uses a one query vector to learn a single latent document representation
             C, A = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
             logits = self.output_layer(C)  # [batch_size, 1, num_labels]
-            logits = torch.squeeze(logits)  # [batch_size, num_labels]
+            logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
 
         else:
             # Implementation of label attention following:

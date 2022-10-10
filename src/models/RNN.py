@@ -196,7 +196,7 @@ class RNN(nn.Module):
             H = self.dropout_layer(H)
             C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
             logits = self.output_layer(C)  # [batch_size, 1, num_labels]
-            logits = torch.squeeze(logits)  # [batch_size, num_labels]
+            logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
 
         else:
             # Implementation of label attention following:
