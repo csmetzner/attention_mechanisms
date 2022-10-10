@@ -116,7 +116,7 @@ class CNN(nn.Module):
             self.conv_layers.append(conv_layer)
 
         # Init Attention Layer
-        if self._att_module != 'max_pool':
+        if self._att_module != 'baseline':
             self.attention_layer = Attention(num_labels=self._n_labels,
                                              embedding_dim=self._embedding_dim,
                                              latent_doc_dim=np.sum(self._n_filters),

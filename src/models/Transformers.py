@@ -92,18 +92,19 @@ class TransformerModel(nn.Module):
         self.dropout_layer = nn.Dropout(p=self._dropout_p)
 
         # Init Attention Layer
-        self.attention_layer = Attention(num_labels=self._n_labels,
-                                         embedding_dim=self._embedding_dim,
-                                         latent_doc_dim=self._latent_doc_dim,
-                                         att_module=self._att_module,
-                                         scale=self._scale,
-                                         multihead=self._multihead,
-                                         num_heads=self._num_heads,
-                                         num_cats=self._n_cats,
-                                         embedding_scaling=self._embedding_scaling,
-                                         label_embedding_matrix=self._label_embedding_matrix,
-                                         cat_embedding_matrix=self._cat_embedding_matrix,
-                                         code2cat_map=self._code2cat_map)
+        if self._att_module != 'baseline':
+            self.attention_layer = Attention(num_labels=self._n_labels,
+                                             embedding_dim=self._embedding_dim,
+                                             latent_doc_dim=self._latent_doc_dim,
+                                             att_module=self._att_module,
+                                             scale=self._scale,
+                                             multihead=self._multihead,
+                                             num_heads=self._num_heads,
+                                             num_cats=self._n_cats,
+                                             embedding_scaling=self._embedding_scaling,
+                                             label_embedding_matrix=self._label_embedding_matrix,
+                                             cat_embedding_matrix=self._cat_embedding_matrix,
+                                             code2cat_map=self._code2cat_map)
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=self._latent_doc_dim,

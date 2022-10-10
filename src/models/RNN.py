@@ -129,7 +129,7 @@ class RNN(nn.Module):
             self._hidden_size = self._hidden_size * 2
 
         # Init Attention Layer
-        if self._att_module != 'max_pool':
+        if self._att_module != 'baseline':
             self.attention_layer = Attention(num_labels=self._n_labels,
                                              embedding_dim=self._embedding_dim,
                                              latent_doc_dim=self._hidden_size,
@@ -186,9 +186,14 @@ class RNN(nn.Module):
         H, H_last = self._RNN(word_embeds)  # H = [batch_size, sequence_length, hidden_dim]
         # Add attention module here
         if self._att_module == 'baseline':
+            # 1. Method: Hidden state of final timestep of last (second) layer
             # H = H_last.permute(1, 0, 2)  # this line is used if baseline is last and first hidden state of both layers
-            # Average output of RNN
+            # H = H[:, 2:, :]  # pytorch stores the last hidden states per layer in sequence --> using final layer states
+            # H = torch.flatten(H, start_dim=1)  # need to flatten dim=1 to concatenate hidden states of both directions
+
+            # 2. Method: Average hidden-states over all time steps
             H = torch.mean(H, dim=1)
+
             H = self.dropout_layer(H)
             logits = self.output_layer(H)
         elif self._att_module == 'target':
@@ -208,4 +213,5 @@ class RNN(nn.Module):
 
             C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+
         return logits
