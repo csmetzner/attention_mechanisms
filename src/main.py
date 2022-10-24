@@ -308,7 +308,10 @@ class ExperimentSuite:
         if not self._transformer:
             scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
         else:
-            scheduler = None 
+            if (self._att_module == 'baseline') or (self._att_module == 'target'):
+                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
+            else:
+                scheduler = None
        
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
