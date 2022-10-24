@@ -182,18 +182,12 @@ class RNN(nn.Module):
         # Embedding layer output: (batch_size, sequence_length, embedding_size)er4w
         word_embeds = torch.mul(word_embeds, mask_words.type(word_embeds.dtype))
 
-        # Compute document representations using the Bi-LSTM
+        # Compute document representations using the RNN
         H, H_last = self._RNN(word_embeds)  # H = [batch_size, sequence_length, hidden_dim]
         # Add attention module here
         if self._att_module == 'baseline':
-            # 1. Method: Hidden state of final timestep of last (second) layer
-            # H = H_last.permute(1, 0, 2)  # this line is used if baseline is last and first hidden state of both layers
-            # H = H[:, 2:, :]  # pytorch stores the last hidden states per layer in sequence --> using final layer states
-            # H = torch.flatten(H, start_dim=1)  # need to flatten dim=1 to concatenate hidden states of both directions
-
             # 2. Method: Average hidden-states over all time steps
             H = torch.mean(H, dim=1)
-
             H = self.dropout_layer(H)
             logits = self.output_layer(H)
         elif self._att_module == 'target':

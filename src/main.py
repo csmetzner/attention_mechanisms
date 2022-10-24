@@ -305,6 +305,7 @@ class ExperimentSuite:
 
         # Set up optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
+<<<<<<< Updated upstream
         if not self._transformer:
             scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
         else:
@@ -312,6 +313,13 @@ class ExperimentSuite:
                 scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
             else:
                 scheduler = None
+=======
+        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
+        #if not self._transformer:
+            #scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
+        #else:
+            #scheduler = None 
+>>>>>>> Stashed changes
        
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
