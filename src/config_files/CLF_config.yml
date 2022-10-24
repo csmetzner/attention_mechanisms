@@ -4,7 +4,7 @@ model_kwargs:
   n_cats: ~
   embedding_dim: 200
   model_name: 'ClinicalLongformer'
-  embedding_scaling: 0.5
+  embedding_scaling: 5
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
   code2cat_map: ~
@@ -19,7 +19,7 @@ train_kwargs:
   batch_size: 4
   epochs: 100
   patience: 10
-  lr: 0.00002
+  lr: 0.00005
   quartiles: False
   individual: False
   parameter_tuning: False

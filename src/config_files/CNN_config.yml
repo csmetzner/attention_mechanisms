@@ -10,7 +10,7 @@ model_kwargs:
   code2cat_map: ~
   window_sizes: [3, 4, 5]
   n_filters: [100, 100, 100]
-  dropout_p: 0.50
+  dropout_p: 0.5
   att_module: ~
   scale: True
   multihead: False
