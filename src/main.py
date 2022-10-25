@@ -384,26 +384,26 @@ class ExperimentSuite:
 
                 # retrieve final query embeddings
                 if self._att_module.split('_')[0] == 'hierarchical':
-                    query_embeddings_cat_start = model._query_embeddings_cat
-                    query_embeddings_label_start = model._query_embeddings_label
+                    query_embeddings_cat_init = model._query_embeddings_cat
+                    query_embeddings_label_init = model._query_embeddings_label
                     query_embeddings_cat_final = model.attention_layer.attention_layer.Q1.weight
                     query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight
 
                     # store query embeddings
                     with open(os.path.join(root, path_res_dir, 'scores',
                                            f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'), 'wb') as f:
-                        pickle.dump([query_embeddings_cat_start, query_embeddings_cat_final], file=f)
+                        pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
                     with open(os.path.join(root, path_res_dir, 'scores',
                                            f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'), 'wb') as f:
-                        pickle.dump([query_embeddings_label_start, query_embeddings_label_final], file=f)
+                        pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
 
                 else:
-                    query_embeddings_start = model._query_embeddings
+                    query_embeddings_init = model._query_embeddings
                     query_embeddings_final = model.attention_layer.attention_layer.Q.weight
 
                     with open(os.path.join(root, path_res_dir, 'scores',
                                            f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
-                        pickle.dump([query_embeddings_start, query_embeddings_final], file=f)
+                        pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
