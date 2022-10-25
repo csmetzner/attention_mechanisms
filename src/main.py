@@ -352,37 +352,49 @@ class ExperimentSuite:
             else:
                 quartiles_indices = None
 
-            test_scores = scoring(model=model,
-                                  data_loader=test_loader,
-                                  transformer=self._transformer,
-                                  class_weights=None,
-                                  quartiles_indices=quartiles_indices,
-                                  individual=individual,
-                                  return_att_scores=model_args['train_kwargs']['return_att_scores'])
-
-            print(f'Test loss: {test_scores["loss"]}', flush=True)
-
-            store_scores(scores=test_scores,
-                         model_type=self._model,
-                         dataset=self._dataset,
-                         seed= self.seed,
-                         train_kwargs=model_args['train_kwargs'],
-                         model_kwargs=model_args['model_kwargs'],
-                         path_res_dir=path_res_dir,
-                         model_name=model_name,
-                         quartiles=quartiles,
-                         individual=individual)
-
-            # Retrieve information needed for analysis
+            # IF-statement if scores have to be retrieved in that run
             if model_args['train_kwargs']['return_att_scores']:
-                with open(os.path.join(root, path_res_dir, 'scores',
-                                       f'{self._model}_{self._att_module}_{self.seed}_attention_scores.pkl'), 'wb') as f:
-                    pickle.dump(test_scores['attention_scores'], file=f)
-                with open(os.path.join(root, path_res_dir, 'scores',
-                                       f'{self._model}_{self._att_module}_{self.seed}_energy_scores.pkl'), 'wb') as f:
-                    pickle.dump(test_scores['energy_scores'], file=f)
+                # re-initialize train dataloader to turn shuffle off - make it easier to assign scores to document
+                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
-                # retrieve final query embeddings
+                data_loaders = [train_loader, val_loader, test_loader]
+                splits = ['train', 'val', 'test']
+
+                for split, loader in zip(splits, data_loaders):
+                    print(split)
+                    scores = scoring(model=model,
+                                     data_loader=loader,
+                                     transformer=self._transformer,
+                                     class_weights=None,
+                                     quartiles_indices=quartiles_indices,
+                                     individual=individual,
+                                     return_att_scores=model_args['train_kwargs']['return_att_scores'])
+
+                    # Retrieve information needed for analysis
+                    with open(os.path.join(root, path_res_dir, 'scores',
+                                           f'{self._model}_{self._att_module}_{self.seed}_{split}_attention_scores.pkl'),
+                              'wb') as f:
+                        pickle.dump(scores['attention_scores'], file=f)
+                    with open(os.path.join(root, path_res_dir, 'scores',
+                                           f'{self._model}_{self._att_module}_{self.seed}_{split}_energy_scores.pkl'),
+                              'wb') as f:
+                        pickle.dump(scores['energy_scores'], file=f)
+
+                    if split == 'test':
+                        print(f'Test loss: {scores["loss"]}', flush=True)
+
+                        store_scores(scores=scores,
+                                     model_type=self._model,
+                                     dataset=self._dataset,
+                                     seed=self.seed,
+                                     train_kwargs=model_args['train_kwargs'],
+                                     model_kwargs=model_args['model_kwargs'],
+                                     path_res_dir=path_res_dir,
+                                     model_name=model_name,
+                                     quartiles=quartiles,
+                                     individual=individual)
+
+                # Retrieve initial and final query embeddings
                 if self._att_module.split('_')[0] == 'hierarchical':
                     query_embeddings_cat_init = model._query_embeddings_cat
                     query_embeddings_label_init = model._query_embeddings_label
@@ -404,6 +416,27 @@ class ExperimentSuite:
                     with open(os.path.join(root, path_res_dir, 'scores',
                                            f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
                         pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
+            else:
+                test_scores = scoring(model=model,
+                                      data_loader=test_loader,
+                                      transformer=self._transformer,
+                                      class_weights=None,
+                                      quartiles_indices=quartiles_indices,
+                                      individual=individual,
+                                      return_att_scores=model_args['train_kwargs']['return_att_scores'])
+
+                print(f'Test loss: {test_scores["loss"]}', flush=True)
+
+                store_scores(scores=test_scores,
+                             model_type=self._model,
+                             dataset=self._dataset,
+                             seed= self.seed,
+                             train_kwargs=model_args['train_kwargs'],
+                             model_kwargs=model_args['model_kwargs'],
+                             path_res_dir=path_res_dir,
+                             model_name=model_name,
+                             quartiles=quartiles,
+                             individual=individual)
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
