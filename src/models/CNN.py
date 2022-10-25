@@ -130,6 +130,13 @@ class CNN(nn.Module):
                                              cat_embedding_matrix=self._cat_embedding_matrix,
                                              code2cat_map=self._code2cat_map)
 
+            # Need for analysis of change in query embeddings
+            if self._att_module.split('_')[0] == 'hierarchical':
+                self._query_embeddings_cat = self.attention_layer.attention_layer.Q1.weight.clone().detach()
+                self._query_embeddings_label = self.attention_layer.attention_layer.Q2.weight.clone().detach()
+            else:
+                self._query_embeddings = self.attention_layer.attention_layer.Q.weight.clone().detach()
+
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
                                       out_features=self._n_labels)
