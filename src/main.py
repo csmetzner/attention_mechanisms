@@ -118,7 +118,8 @@ class ExperimentSuite:
                           individual: bool = None,
                           embedding_scaling: float = None,
                           parameter_tuning: bool = None,
-                          learning_rate: float = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+                          learning_rate: float = None,
+                          return_att_scores: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
@@ -219,6 +220,8 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['parameter_tuning'] = parameter_tuning
         if learning_rate is not None:
             self._model_args['train_kwargs']['lr'] = learning_rate
+        if return_att_scores is not None:
+            self._model_args['train_kwargs']['return_att_scores'] = return_att_scores
         return self._model_args
 
     def fit_model(self,
@@ -240,17 +243,15 @@ class ExperimentSuite:
 
         model_name = f"{self._model}" \
                      f"_{self._dataset}" \
-                     f"_{model_args['train_kwargs']['batch_size']}" \
-                     f"_{model_args['train_kwargs']['patience']}" \
                      f"_{model_args['model_kwargs']['att_module']}" \
-                     f"_{model_args['model_kwargs']['embedding_dim']}" \
                      f"_{model_args['model_kwargs']['n_filters'][0] if self._model == 'CNN' else model_args['model_kwargs']['hidden_size']}" \
+                     f"_{model_args['model_kwargs']['embedding_dim']}" \
+                     f"_{model_args['train_kwargs']['batch_size']}" \
                      f"_{model_args['model_kwargs']['dropout_p']}" \
-                     f"_{model_args['model_kwargs']['scale']}" \
                      f"_{model_args['model_kwargs']['multihead']}" \
                      f"_{model_args['model_kwargs']['num_heads']}" \
-                     f'{timestamp}'
-
+                     f"_{self.seed}"\
+                     f'_{timestamp}'
         print(f'Name of model: {model_name}')
 
         # Create directory to store model parameters
@@ -262,14 +263,6 @@ class ExperimentSuite:
 
         Data = dataloaders.MimicData
 
-        #if self._transformer:
-        #    train_dataset = X[0]
-        #    val_dataset = X[1]
-        #    test_dataset = X[2]
-        #    print(f'Size of training data {len(train_dataset["input_ids"])},'
-        #          f' validation data {len(val_dataset["input_ids"])},'
-        #          f' and testing data {len(test_dataset["input_ids"])}.')
-        #else:
         # Training dataset
         train_dataset = Data(X=X[0], Y=Y[0], transformer=self._transformer, doc_max_len=doc_max_len)
 
@@ -305,7 +298,6 @@ class ExperimentSuite:
 
         # Set up optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
-<<<<<<< Updated upstream
         if not self._transformer:
             scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
         else:
@@ -313,13 +305,6 @@ class ExperimentSuite:
                 scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
             else:
                 scheduler = None
-=======
-        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
-        #if not self._transformer:
-            #scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
-        #else:
-            #scheduler = None 
->>>>>>> Stashed changes
        
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
@@ -335,6 +320,7 @@ class ExperimentSuite:
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
         model.to(device)
 
+        # Hyperparameter tuning - testing is done on the validation set
         if model_args['train_kwargs']['parameter_tuning']:
             val_scores = scoring(model=model,
                                  data_loader=test_loader,
@@ -371,7 +357,8 @@ class ExperimentSuite:
                                   transformer=self._transformer,
                                   class_weights=None,
                                   quartiles_indices=quartiles_indices,
-                                  individual=individual)
+                                  individual=individual,
+                                  return_att_scores=model_args['train_kwargs']['return_att_scores'])
 
             print(f'Test loss: {test_scores["loss"]}', flush=True)
 
@@ -385,6 +372,14 @@ class ExperimentSuite:
                          model_name=model_name,
                          quartiles=quartiles,
                          individual=individual)
+
+            if model_args['train_kwargs']['return_att_scores']:
+                with open(os.path.join(root, path_res_dir, 'scores',
+                                       f'{self._model}_{self._att_module}_{self.seed}_attention_scores.pkl'), 'wb') as f:
+                    pickle.dump(test_scores['attention_scores'], file=f)
+                with open(os.path.join(root, path_res_dir, 'scores',
+                                       f'{self._model}_{self._att_module}_{self.seed}_energy_scores.pkl'), 'wb') as f:
+                    pickle.dump(test_scores['energy_scores'], file=f)
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
@@ -706,6 +701,9 @@ parser.add_argument('-pt', '--parameter_tuning',
 parser.add_argument('-lr', '--learning_rate',
                     type=float,
                     help='Set learning rate for optimizer.')
+parser.add_argument('-as', '--return_att_scores',
+                    type=parse_boolean,
+                    help='Flag indicating to return attention and energy scores.')
 
 args = parser.parse_args()
 
@@ -749,7 +747,8 @@ def main():
                                        individual=args.compute_individual,
                                        embedding_scaling=args.embedding_scaling,
                                        parameter_tuning=args.parameter_tuning,
-                                       learning_rate=args.learning_rate)
+                                       learning_rate=args.learning_rate,
+                                       return_att_scores=args.return_att_scores)
 
     if args.singularity:
         path_res_dir = f'mnt/results_{args.experiment_name}/'
