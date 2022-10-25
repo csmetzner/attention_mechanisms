@@ -7,6 +7,7 @@ This file contains source code for the training procedure of the models.
 """
 
 # built-in libraries
+import sys
 import time
 import random
 from typing import Dict, Union, List
@@ -107,6 +108,7 @@ def train(model: nn.Module,
                 # Cast ground-truth labels to device; multi-label or multi-class tensors
                 # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
                 Y = batch['Y'].to(device)
+
                 logits = model(X)
             loss = 0
             loss += loss_fct(logits, Y)
@@ -116,6 +118,7 @@ def train(model: nn.Module,
 
             # y_trues.extend(Y.detach().cpu().numpy())
             # y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
+
             # Perform backpropagation
 
             #if b == 1:
@@ -153,7 +156,8 @@ def scoring(model,
             transformer: bool = False,
             quartiles_indices: List[int] = None,
             individual: bool = False,
-            class_weights: np.array = None) -> Dict[str, Union[float, np.array]]:
+            class_weights: np.array = None,
+            return_att_scores: bool = False) -> Dict[str, Union[float, np.array]]:
 
     """
     Parameters
@@ -197,21 +201,43 @@ def scoring(model,
     # Init list to keep track of losses per batch and running validation loss variable
     losses = []
 
+    # If return attention scores true then init empty arrays to collect attention and energy scores for the test data
+    # lists store scores batch-wise; need to also store document indices to re-assign documents to scores
+    if return_att_scores:
+        attention_scores = []
+        energy_scores = []
+
     # switch off autograd engine; reduces memory usage and increase computation speed
     with torch.no_grad():
         # loop through dataset
         for b, batch in enumerate(data_loader):
+            #if b == 1:
+            #    break
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
-                logits = model(input_ids=input_ids,
-                               attention_mask=attention_mask)
+                if return_att_scores:
+                    logits, A, E = model(input_ids=input_ids,
+                                         attention_mask=attention_mask,
+                                         return_att_scores=return_att_scores)
+                    attention_scores.append(A)
+                    energy_scores.append(E)
+                else:
+                    logits = model(input_ids=input_ids,
+                                   attention_mask=attention_mask)
                 Y = batch['labels'].to(device)
             else:
                 # Retrieve token2id mapped and 0-padded documents of current batch
                 X = batch['X'].to(device)
                 Y = batch['Y'].to(device)
-                logits = model(X)
+
+                if return_att_scores:
+                    logits, A, E = model(X, return_att_scores)
+
+                    attention_scores.append(A)
+                    energy_scores.append(E)
+                else:
+                    logits = model(X)
             loss = 0
 
             # Extend arrays with ground-truth values (Y), prediction probabilities (probs), and predictions (logits)
@@ -224,8 +250,6 @@ def scoring(model,
             loss += loss_fct(logits, Y)
             l_cpu = loss.cpu().detach().numpy()
             losses.append(l_cpu)
-            #if b == 1:
-            #    break
 
     # Compute the scores
     scores = {}
@@ -244,4 +268,8 @@ def scoring(model,
     scores['y_preds'] = y_preds_
     scores['loss'] = loss
 
+    # Store attention scores in score dictionary
+    if return_att_scores:
+        scores['attention_scores'] = attention_scores
+        scores['energy_scores'] = energy_scores
     return scores
