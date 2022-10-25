@@ -2,7 +2,7 @@
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/31/2022
-    @last modified: 05/31/2022
+    @last modified: 10/25/2022
 
 
 
@@ -19,7 +19,6 @@ import torch.nn.functional as F
 # custom libraries
 from attention_modules.multihead_attention import transpose_qkv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
 
 class RandomAttention(nn.Module):
@@ -136,4 +135,4 @@ class RandomAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-        return C, A
+        return C, A, E

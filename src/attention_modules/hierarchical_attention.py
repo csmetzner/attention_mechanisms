@@ -20,7 +20,6 @@ from attention_modules.multihead_attention import transpose_qkv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-
 class HierarchicalRandomAttention(nn.Module):
     """
     Hierarchical target attention mechanism inspired by Galassi et al. (2021) - Attention in Natural Language Processing
@@ -181,7 +180,7 @@ class HierarchicalRandomAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
-        return C2, A2
+        return C2, A2, E2
 
 
 class HierarchicalPretrainedAttention(nn.Module):
@@ -356,4 +355,4 @@ class HierarchicalPretrainedAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
-        return C2, A2
+        return C2, A2, E2

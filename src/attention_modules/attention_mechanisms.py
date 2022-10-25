@@ -191,10 +191,10 @@ class Attention(nn.Module):
         K = F.elu(self.K(H).permute(0, 2, 1))
         V = F.elu(self.V(H).permute(0, 2, 1))
         if self._multihead:
-            C, A = self.attention_layer(K=K, V=V)
+            C, A, E = self.attention_layer(K=K, V=V)
             C = transpose_output(X=C, num_heads=self._num_heads)
             A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
         else:
-            C, A = self.attention_layer(K=K, V=V)
-        return C, A
+            C, A, E = self.attention_layer(K=K, V=V)
+        return C, A, E

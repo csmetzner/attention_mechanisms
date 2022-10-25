@@ -149,7 +149,7 @@ class RNN(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         self.output_layer.bias.data.fill_(0.01)
 
-    def forward(self, docs: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+    def forward(self, docs: torch.Tensor, return_att_scores: bool=False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of RNN models
 
@@ -157,8 +157,8 @@ class RNN(nn.Module):
         ----------
         docs : torch.tensor
             Input documents
-        return_doc_embeds : bool; default=False
-            Flag indicating if doc embeddings should be returned
+        return_att_scores : bool; default=False
+            Flag indicating to return attention and energy scores
 
         Returns
         -------
@@ -193,7 +193,7 @@ class RNN(nn.Module):
         elif self._att_module == 'target':
             # target attention uses a one query vector to learn a single latent document representation
             H = self.dropout_layer(H)
-            C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+            C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
             logits = self.output_layer(C)  # [batch_size, 1, num_labels]
             logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
 
@@ -205,7 +205,9 @@ class RNN(nn.Module):
             # number of labels in the label space.
             H = self.dropout_layer(H)
 
-            C, A = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+            C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
+        if return_att_scores:
+            return logits, A, E
         return logits

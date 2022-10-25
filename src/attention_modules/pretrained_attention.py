@@ -22,7 +22,6 @@ from attention_modules.multihead_attention import transpose_qkv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-
 class PretrainedAttention(nn.Module):
     """
     Label Attention with pretrained label embedding matrix generated using Doc2Vec.
@@ -142,4 +141,4 @@ class PretrainedAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
             C = A.matmul(V)
 
-        return C, A
+        return C, A, E
