@@ -64,7 +64,7 @@ def train(model: nn.Module,
         Alignment model contains the critic and the navigator to determine the alignment loss.
 
     """
-
+    return_att_scores = train_kwargs['return_att_scores']
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
     # Set up loss function
@@ -99,8 +99,13 @@ def train(model: nn.Module,
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
-                logits = model(input_ids=input_ids,
-                               attention_mask=attention_mask)
+                if return_att_scores:
+                    logits, A, E = model(input_ids=input_ids,
+                                         attention_mask=attention_mask,
+                                         return_att_scores=return_att_scores)
+                else:
+                    logits = model(input_ids=input_ids,
+                                   attention_mask=attention_mask)
                 Y = batch['labels'].to(device)
             else:
                 # Cast samples to device; token2id mapped and 0-padded documents of current batch
@@ -108,8 +113,10 @@ def train(model: nn.Module,
                 # Cast ground-truth labels to device; multi-label or multi-class tensors
                 # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
                 Y = batch['Y'].to(device)
-
-                logits = model(X)
+                if return_att_scores:
+                    logits, A, E = model(X, return_att_scores)
+                else:
+                    logits = model(X)
             loss = 0
             loss += loss_fct(logits, Y)
             loss.backward()
@@ -121,8 +128,8 @@ def train(model: nn.Module,
 
             # Perform backpropagation
 
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
         if not transformer:
             scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
@@ -211,8 +218,9 @@ def scoring(model,
     with torch.no_grad():
         # loop through dataset
         for b, batch in enumerate(data_loader):
-            #if b == 1:
-            #    break
+            print(b)
+            if b == 1:
+                break
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
@@ -220,8 +228,8 @@ def scoring(model,
                     logits, A, E = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
-                    attention_scores.append(A)
-                    energy_scores.append(E)
+                    attention_scores.append(A.detach())
+                    energy_scores.append(E.detach())
                 else:
                     logits = model(input_ids=input_ids,
                                    attention_mask=attention_mask)
@@ -234,8 +242,8 @@ def scoring(model,
                 if return_att_scores:
                     logits, A, E = model(X, return_att_scores)
 
-                    attention_scores.append(A)
-                    energy_scores.append(E)
+                    attention_scores.append(A.detach())
+                    energy_scores.append(E.detach())
                 else:
                     logits = model(X)
             loss = 0
