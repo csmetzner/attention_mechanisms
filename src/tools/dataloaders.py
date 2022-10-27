@@ -36,7 +36,6 @@ class MimicData(Dataset):
             sample = {'input_ids': self.X['input_ids'][idx,:self._doc_max_len],
                       'attention_mask': self.X['attention_mask'][idx,:self._doc_max_len]}
             sample['labels'] = torch.tensor(self.Y[idx], dtype=torch.float)
-            print(sample['input_ids'].size())
         else:
             doc = self.X[idx]  # get sample at idx from pd dataframe
             array = np.zeros(self._doc_max_len)  # create empty array filled with 0; 0 used for padding
