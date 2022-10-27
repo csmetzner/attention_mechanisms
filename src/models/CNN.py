@@ -143,7 +143,7 @@ class CNN(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         self.output_layer.bias.data.fill_(0.01)
 
-    def forward(self, docs: torch.Tensor, return_att_scores: bool=False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+    def forward(self, docs: torch.Tensor, return_att_scores: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of CNN model
 
