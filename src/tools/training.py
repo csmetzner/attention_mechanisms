@@ -7,7 +7,6 @@ This file contains source code for the training procedure of the models.
 """
 
 # built-in libraries
-import sys
 import time
 import random
 from typing import Dict, Union, List
@@ -15,18 +14,17 @@ from typing import Dict, Union, List
 # installed libraries
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 
 # Custom libraries
 from .performance_metrics import get_scores
 
-# Select GPU as hardware if available otherwise use available CPU
 SEED = 42
 random.seed(SEED)
 torch.manual_seed(SEED)
 np.random.seed(SEED)
-#device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
+
+# Select GPU as hardware if available otherwise use available CPU
 device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -37,13 +35,13 @@ def train(model: nn.Module,
           transformer: bool = False,
           val_loader=None,
           scheduler=None,
-          class_weights: np.array = None,
           save_name: str = None):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
     Parameters
     ----------
+    scheduler
     model : nn.Model
         Multi-label or multi-class classification model implemented in pytorch using nn.Model
     train_kwargs : Dict[str, Union[bool, int]]
@@ -56,26 +54,20 @@ def train(model: nn.Module,
         Flag indicating whether the model is a transformer or not
     val_loader : pytorch data loader
         Dataloader contianing the validation dataset; samples X and ground-truth values Y
-    class_weights : np.array; default=None
-        Array containing the class weights in shape (n_classes,)
+    scheduler : pytorch learning rate scheduler
+        Learning rate scheduler
     save_name : str; default=None
         Descriptive name to save the trained model
-    alignment_model: nn.Module; default=None
-        Alignment model contains the critic and the navigator to determine the alignment loss.
 
     """
     return_att_scores = train_kwargs['return_att_scores']
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
-    # Set up loss function
-    class_weights_tensor = None
-    if class_weights is not None:
-        class_weights_tensor = torch.FloatTensor(class_weights).to(device)
 
     # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
     # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
     # Use BCEWithLogitsLoss() for increased numerical stability
-    loss_fct = torch.nn.BCEWithLogitsLoss(weight=class_weights_tensor)
+    loss_fct = torch.nn.BCEWithLogitsLoss()
 
     # Variables to track validation performance and early stopping
     best_val_loss = np.inf
@@ -87,18 +79,21 @@ def train(model: nn.Module,
         # Enable training of layers with trainable parameters
         model.train()
 
-        # Init arrays to keep track of ground-truth labels
-        y_trues = []
-        y_preds = []
-
         # Keep track of training time
         start_time = time.time()
         for b, batch in enumerate(train_loader):
+            ## if-statement for debugging the code
+            if b == 1:
+                break
             # set gradients to zero for every new batch
             optimizer.zero_grad()
+
+            # Compute logits and return attention/energy scores if prompted
             if transformer:
+                # cast input_ids and attention_mask to device
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
+
                 if return_att_scores:
                     logits, A, E = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
@@ -115,30 +110,24 @@ def train(model: nn.Module,
                 Y = batch['Y'].to(device)
                 if return_att_scores:
                     logits, A, E = model(X, return_att_scores)
+                    print(A)
                 else:
                     logits = model(X)
+            # Compute loss
             loss = 0
             loss += loss_fct(logits, Y)
+            # perform backpropagation
             loss.backward()
             optimizer.step()
             l_cpu = loss.cpu().detach().numpy()
 
-            # y_trues.extend(Y.detach().cpu().numpy())
-            # y_preds.extend(logits.detach().cpu().numpy()) # how do you have to compute these things for multi-class case
-
-            # Perform backpropagation
-
-            if b == 1:
-                break
-        if not transformer:
-            scheduler.step()
+        scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
         ### Validate model ###
         if val_loader is not None:
             scores = scoring(model=model,
                              data_loader=val_loader,
-                             class_weights=class_weights,
                              transformer=transformer,
                              quartiles_indices=None,
                              individual=False)
@@ -151,6 +140,7 @@ def train(model: nn.Module,
                 torch.save(model.state_dict(), f'{save_name}.pt')
             else:
                 patience_counter += 1
+                print(f'Patience: {patience_counter}')
                 if patience_counter >= patience:
                     break
     # If no validation dataset available, save after every epoch
@@ -163,23 +153,24 @@ def scoring(model,
             transformer: bool = False,
             quartiles_indices: List[int] = None,
             individual: bool = False,
-            class_weights: np.array = None,
             return_att_scores: bool = False) -> Dict[str, Union[float, np.array]]:
 
     """
     Parameters
     ----------
+
     model : nn.Model
         Multi-label or multi-class classification model implemented in pytorch using nn.Model
     data_loader : pytorch data loader
         Dataloader containing the training dataset; samples X and ground-truth values Y
-    multilabel : bool
-        Flag indicating whether multi-label or multi-class text classification is taken place
-    class_weights : np.array
-        Array containing the class weights in shape (n_classes,)
-    quartiles : List[int]
-        Flag indicating if performance metrics should be computed for quartiles.
-    path_quartiles:
+    transformer : bool; default=False
+        Flag indicating if model is a transformer or not.
+    quartiles_indices : List[int]; default=None
+        List containing information in which quartile a respective label is
+    individual : bool; default=False
+        Flag indicating if performance metrics should be computed for each label in the label space individually
+    return_att_scores : bool; default=False
+        Flag indicating if attention and energy scores should be retrieved
 
     Returns
     -------
@@ -188,14 +179,9 @@ def scoring(model,
         prediction, and validating/testing loss.
     """
 
-    # Set up loss function
-    class_weights_tensor = None
-    if class_weights is not None:
-        class_weights_tensor = torch.FloatTensor(class_weights).to(device)
-
     # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
     # Use BCEWithLogitsLoss() for increased numerical stability
-    loss_fct = torch.nn.BCEWithLogitsLoss(weight=class_weights_tensor)
+    loss_fct = torch.nn.BCEWithLogitsLoss()
 
     # Put model in evaluation mode; turns off stochastic based layers (e.g., dropout or batch normalization)
     model.eval()
@@ -218,7 +204,7 @@ def scoring(model,
     with torch.no_grad():
         # loop through dataset
         for b, batch in enumerate(data_loader):
-            print(b)
+            # if statement for debugging the code
             if b == 1:
                 break
             if transformer:

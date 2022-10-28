@@ -41,14 +41,14 @@ try:
 except NameError:
     root = os.path.dirname(os.getcwd())
 sys.path.append(root)
-print('Done!', flush=True)
+print('Complete!', flush=True)
+print('-------------------------')
 
 # Two datasets: | PathReports | Mimic |
 # - SEER cancer pathology reports  - Multiclass text classification
 # - Physionet MIMIC-III  - Multilabel text classification
 
 # Pytorch set device to 'cuda'/GPUs if available otherwise use available CPUs
-#device = torch.device('mps' if torch.has_mps else ('cuda' if torch.cuda.is_available() else 'cpu'))
 device = ('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'The experiment uses the following device: {device}', flush=True)
 
@@ -65,37 +65,55 @@ class ExperimentSuite:
         self.seed = seed
         self._model_args = None
 
+        # Flag to indicate that we use a huggingface-based transformer model
         if self._model == 'CLF':
             self._transformer = True
         else:
             self._transformer = False
 
     def fetch_data(self):
+        """
+        Function to load preprocessed datasets (train/val/test).
+
+        Returns
+        -------
+        X : List[Union[torch.tensor, np.array]]
+            List containing dataset sample/document splits
+        Y : List[Union[torch.tensor, np.array]]
+            List containing ground-truth label splits
+
+        """
         # Initialize list with split names
         splits = ['train', 'val', 'test']
         # Init path to load preprocessed data
         path_dataset = os.path.join(root, 'data', 'processed', f'data_{self._dataset}')
 
         # Initialize lists to store training, validation, and testing data
-        # X: documents, Y: ground-truth labels
+        # X: samples/documents, Y: ground-truth labels
         X = []
         Y = []
 
         for s, split in enumerate(splits):
             # Load token2idx mapped documents
             if self._transformer:
+                # Load documents and append document-split to sample list
                 X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}_text.pkl'))
                 X.append(X_split)
+
+                # Load document-level ground-truth labels and append label-split to label list
                 Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
+                # Labels have to be provided as torch.tensor
                 Y_tensor = torch.stack([torch.from_numpy(sample) for sample in Y_split.values])
                 Y.append(Y_tensor)
             else:
+                # Load documents and append document-split to sample list
                 X_split = pd.read_pickle(os.path.join(path_dataset, f'X_{self._dataset}_{split}.pkl'))
                 X.append(X_split.values)
 
                 # Load ground-truth values
                 Y_split = pd.read_pickle(os.path.join(path_dataset, f'y_code_{self._dataset}_{split}.pkl'))
                 Y.append(Y_split.values)
+
         return X, Y
 
     def fill_model_config(self,
@@ -120,6 +138,38 @@ class ExperimentSuite:
                           parameter_tuning: bool = None,
                           learning_rate: float = None,
                           return_att_scores: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
+        """
+        This function checks and if necessary alters the model config yml file.
+
+        Parameters
+        ----------
+        model
+        dataset
+        att_module
+        task
+        embedding_dim
+        dropout_p
+        batch_size
+        epochs
+        doc_max_len
+        patience
+        scale
+        multihead
+        num_heads
+        hidden_dim
+        window_sizes
+        quartiles
+        individual
+        embedding_scaling
+        parameter_tuning
+        learning_rate
+        return_att_scores
+
+        Returns
+        -------
+        Dict[str: Dict[str, Union[str, int, float]]
+
+        """
 
         # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
@@ -238,8 +288,8 @@ class ExperimentSuite:
         # Check for required computation of performance metrics for quartiles and/or each individual labels
         quartiles = model_args['train_kwargs']['quartiles']
         individual = model_args['train_kwargs']['individual']
-
-        # alignment = model_args['train_kwargs']['alignment']
+        parameter_tuning = model_args['train_kwargs']['parameter_tuning']
+        return_att_scores = model_args['train_kwargs']['return_att_scores']
 
         model_name = f"{self._model}" \
                      f"_{self._dataset}" \
@@ -259,8 +309,10 @@ class ExperimentSuite:
         if not os.path.exists(os.path.dirname(path_res_models)):
             os.makedirs(os.path.dirname(path_res_models))
 
-        save_name = os.path.join(path_res_models, model_name)  # create absolute path to storage location
+        # create absolute path to storage location
+        save_name = os.path.join(path_res_models, model_name)
 
+        # Load dataloader for MIMIC-III dataset
         Data = dataloaders.MimicData
 
         # Training dataset
@@ -280,6 +332,7 @@ class ExperimentSuite:
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
+        # Initialize correct model object
         if self._model == 'CNN':
             model = CNN(**model_args['model_kwargs'])
         elif self._model == 'BiLSTM':
@@ -296,16 +349,10 @@ class ExperimentSuite:
         if torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(model)
 
-        # Set up optimizer
+        # Set up optimizer and learning rate scheduler used by all models
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
-        if not self._transformer:
-            scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
-        else:
-            if (self._att_module == 'baseline') or (self._att_module == 'target'):
-                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
-            else:
-                scheduler = None
-       
+        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
+
         train(model=model,
               train_kwargs=model_args['train_kwargs'],
               optimizer=optimizer,
@@ -313,23 +360,23 @@ class ExperimentSuite:
               transformer=self._transformer,
               val_loader=val_loader,
               scheduler=scheduler,
-              class_weights=None,
               save_name=save_name)
 
-        # Test the best model - load it
+        # Once training is completed, we want to test the performance of our model
+        # To ensure we actually use the best model, we load the best model we just stored during training
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
-        model.to(device)
+        model.to(device)  # we need to cast the model to the device
 
-        # Hyperparameter tuning - testing is done on the validation set
-        if model_args['train_kwargs']['parameter_tuning']:
+        # Hyperparameter tuning is done by testing the model performance on the validation set
+        # Using the validation set prevents data leakage
+        if parameter_tuning:
+            print('Testing model on validation set!')
             val_scores = scoring(model=model,
                                  data_loader=test_loader,
                                  transformer=self._transformer,
-                                 class_weights=None,
                                  quartiles_indices=None,
                                  individual=individual)
-
-            print(f'Val loss: {val_scores["loss"]}', flush=True)
+            print(f'Tuning Validation loss: {val_scores["loss"]}', flush=True)
 
             store_scores(scores=val_scores,
                          model_type=self._model,
@@ -343,7 +390,7 @@ class ExperimentSuite:
                          individual=individual)
         else:
             # Save the test_scores to csv file
-            print('Testing trained model')
+            print('Testing model on test set!')
 
             # Check if performance metrics should be computed for quartiles
             if quartiles:
@@ -353,24 +400,23 @@ class ExperimentSuite:
                 quartiles_indices = None
 
             # IF-statement if scores have to be retrieved in that run
-            if model_args['train_kwargs']['return_att_scores']:
+            if return_att_scores:
+                print('Retrieve attention and energy scores for train, val, test splits!')
                 # re-initialize train dataloader to turn shuffle off - make it easier to assign scores to document
                 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-
                 data_loaders = [train_loader, val_loader, test_loader]
                 splits = ['train', 'val', 'test']
 
                 for split, loader in zip(splits, data_loaders):
-                    print(split)
+                    print(f'Testing against split: {split}')
                     scores = scoring(model=model,
                                      data_loader=loader,
                                      transformer=self._transformer,
-                                     class_weights=None,
                                      quartiles_indices=quartiles_indices,
                                      individual=individual,
-                                     return_att_scores=model_args['train_kwargs']['return_att_scores'])
+                                     return_att_scores=return_att_scores)
 
-                    # Retrieve information needed for analysis
+                    # Store attention and energy scores in pickle files for later analysis
                     with open(os.path.join(root, path_res_dir, 'scores',
                                            f'{self._model}_{self._att_module}_{self.seed}_{split}_attention_scores.pkl'),
                               'wb') as f:
@@ -380,6 +426,7 @@ class ExperimentSuite:
                               'wb') as f:
                         pickle.dump(scores['energy_scores'], file=f)
 
+                    # Retrieve model performance metrics for test split
                     if split == 'test':
                         print(f'Test loss: {scores["loss"]}', flush=True)
 
@@ -395,6 +442,7 @@ class ExperimentSuite:
                                      individual=individual)
 
                 # Retrieve initial and final query embeddings
+                # Those are independent of the split
                 if self._att_module.split('_')[0] == 'hierarchical':
                     query_embeddings_cat_init = model._query_embeddings_cat
                     query_embeddings_label_init = model._query_embeddings_label
@@ -416,11 +464,12 @@ class ExperimentSuite:
                     with open(os.path.join(root, path_res_dir, 'scores',
                                            f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
                         pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
+            # Only retrieve model performance on test dataset if we are not interested
+            # in attention/energy scores and queries
             else:
                 test_scores = scoring(model=model,
                                       data_loader=test_loader,
                                       transformer=self._transformer,
-                                      class_weights=None,
                                       quartiles_indices=quartiles_indices,
                                       individual=individual,
                                       return_att_scores=model_args['train_kwargs']['return_att_scores'])
@@ -430,7 +479,7 @@ class ExperimentSuite:
                 store_scores(scores=test_scores,
                              model_type=self._model,
                              dataset=self._dataset,
-                             seed= self.seed,
+                             seed=self.seed,
                              train_kwargs=model_args['train_kwargs'],
                              model_kwargs=model_args['model_kwargs'],
                              path_res_dir=path_res_dir,
