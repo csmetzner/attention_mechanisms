@@ -7,9 +7,6 @@ and the clinical notes of MIMIC-III (Mimic) datasets.
     @last modified: 05/24/2022
 """
 
-# Built-in libraries
-from typing import Union, List, Dict
-
 # Installed libraries
 import numpy as np
 import torch
@@ -21,7 +18,7 @@ class MimicData(Dataset):
                  X: np.array,
                  Y: np.array,
                  transformer: bool = False,
-                 doc_max_len: int = 4000):
+                 doc_max_len: int = 3000):
 
         self.X = X
         self.Y = Y
