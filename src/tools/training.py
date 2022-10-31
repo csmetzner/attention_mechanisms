@@ -83,8 +83,8 @@ def train(model: nn.Module,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             ## if-statement for debugging the code
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
             # set gradients to zero for every new batch
             optimizer.zero_grad()
 
@@ -93,14 +93,8 @@ def train(model: nn.Module,
                 # cast input_ids and attention_mask to device
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
-
-                if return_att_scores:
-                    logits, A, E = model(input_ids=input_ids,
-                                         attention_mask=attention_mask,
-                                         return_att_scores=return_att_scores)
-                else:
-                    logits = model(input_ids=input_ids,
-                                   attention_mask=attention_mask)
+                logits = model(input_ids=input_ids,
+                               attention_mask=attention_mask)
                 Y = batch['labels'].to(device)
             else:
                 # Cast samples to device; token2id mapped and 0-padded documents of current batch
@@ -108,11 +102,7 @@ def train(model: nn.Module,
                 # Cast ground-truth labels to device; multi-label or multi-class tensors
                 # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
                 Y = batch['Y'].to(device)
-                if return_att_scores:
-                    logits, A, E = model(X, return_att_scores)
-                    print(A)
-                else:
-                    logits = model(X)
+                logits = model(X)
             # Compute loss
             loss = 0
             loss += loss_fct(logits, Y)
@@ -205,8 +195,8 @@ def scoring(model,
         # loop through dataset
         for b, batch in enumerate(data_loader):
             # if statement for debugging the code
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
@@ -227,7 +217,6 @@ def scoring(model,
 
                 if return_att_scores:
                     logits, A, E = model(X, return_att_scores)
-
                     attention_scores.append(A.detach())
                     energy_scores.append(E.detach())
                 else:

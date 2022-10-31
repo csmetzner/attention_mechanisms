@@ -182,7 +182,6 @@ class CNN(nn.Module):
         # conv1d layer input: (batch_size, embedding_size, sequence_length)
         word_embeds = word_embeds.permute(0, 2, 1)
 
-
         # parallel 1D word convolutions
         conv_outs = []
         for layer in self.conv_layers:
@@ -213,7 +212,9 @@ class CNN(nn.Module):
 
             # Label attention uses |L| query vectors to learn |L| latent document representations, where |L| is the
             # number of labels in the label space.
+            print(H.size())
             C, A, E = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
+
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
