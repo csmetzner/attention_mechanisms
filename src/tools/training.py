@@ -8,7 +8,6 @@ This file contains source code for the training procedure of the models.
 
 # built-in libraries
 import time
-import random
 from typing import Dict, Union, List
 
 # installed libraries
@@ -55,7 +54,6 @@ def train(model: nn.Module,
         Descriptive name to save the trained model
 
     """
-    return_att_scores = train_kwargs['return_att_scores']
     epochs = train_kwargs['epochs']
     patience = train_kwargs['patience']
 
