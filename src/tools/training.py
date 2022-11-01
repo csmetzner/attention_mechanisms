@@ -19,11 +19,6 @@ import numpy as np
 # Custom libraries
 from .performance_metrics import get_scores
 
-SEED = 42
-random.seed(SEED)
-torch.manual_seed(SEED)
-np.random.seed(SEED)
-
 # Select GPU as hardware if available otherwise use available CPU
 device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
