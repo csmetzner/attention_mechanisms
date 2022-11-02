@@ -17,6 +17,7 @@ import torch.nn.functional as F
 
 # custom libraries
 from attention_modules.attention_mechanisms import Attention
+device = ('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class CNN(nn.Module):
@@ -132,10 +133,10 @@ class CNN(nn.Module):
 
             # Need for analysis of change in query embeddings
             if self._att_module.split('_')[0] == 'hierarchical':
-                self._query_embeddings_cat = self.attention_layer.attention_layer.Q1.weight.clone().detach()
-                self._query_embeddings_label = self.attention_layer.attention_layer.Q2.weight.clone().detach()
+                self._query_embeddings_cat = self.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
+                self._query_embeddings_label = self.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
             else:
-                self._query_embeddings = self.attention_layer.attention_layer.Q.weight.clone().detach()
+                self._query_embeddings = self.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=np.sum(self._n_filters),
@@ -212,11 +213,17 @@ class CNN(nn.Module):
 
             # Label attention uses |L| query vectors to learn |L| latent document representations, where |L| is the
             # number of labels in the label space.
-            print(H.size())
             C, A, E = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
 
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
-            return logits, A, E
+            A_size = A.size()
+            A_new = torch.zeros((A_size[0], A_size[1], 3000))
+            A_new[:, :, :A_size[2]] = A
+            E_new = torch.zeros((A_size[0], A_size[1], 3000))
+            E_new[:, :, :A_size[2]] = E
+            A_new = A_new.to(device)
+            E_new = E_new.to(device)
+            return logits, A_new, E_new
         return logits
