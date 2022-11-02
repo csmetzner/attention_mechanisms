@@ -197,8 +197,8 @@ def scoring(model,
                     logits, A, E = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
-                    attention_scores.append(A.detach())
-                    energy_scores.append(E.detach())
+                    attention_scores.append(A.detach().cpu().numpy())
+                    energy_scores.append(E.detach().cpu().numpy())
                 else:
                     logits = model(input_ids=input_ids,
                                    attention_mask=attention_mask)
@@ -210,8 +210,8 @@ def scoring(model,
 
                 if return_att_scores:
                     logits, A, E = model(X, return_att_scores)
-                    attention_scores.append(A.detach())
-                    energy_scores.append(E.detach())
+                    attention_scores.append(A.detach().cpu().numpy())
+                    energy_scores.append(E.detach().cpu().numpy())
                 else:
                     logits = model(X)
             loss = 0
