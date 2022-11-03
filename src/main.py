@@ -414,7 +414,7 @@ class ExperimentSuite:
 
                 for split, loader in zip(splits, data_loaders):
                     print(f'Testing against split: {split}')
-                    path_scores = os.path.join(root, path_res_dir, 'scores', 'analysis',
+                    path_scores = os.path.join(path_res_dir, 'scores', 'analysis',
                                            f'{self._model}_{self._att_module}_{self.seed}_{split}')
                     print(path_scores)
                     scores = scoring(model=model,
@@ -450,10 +450,10 @@ class ExperimentSuite:
                         query_embeddings_label_final = model.module.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
 
                         # store query embeddings
-                        with open(os.path.join(root, path_res_dir, 'scores',
+                        with open(os.path.join(path_res_dir, 'scores',
                                                f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'), 'wb') as f:
                             pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
-                        with open(os.path.join(root, path_res_dir, 'scores',
+                        with open(os.path.join(path_res_dir, 'scores',
                                                f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'), 'wb') as f:
                             pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
 
@@ -461,7 +461,7 @@ class ExperimentSuite:
                         query_embeddings_init = model.module._query_embeddings
                         query_embeddings_final = model.module.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
 
-                        with open(os.path.join(root, path_res_dir, 'scores',
+                        with open(os.path.join(path_res_dir, 'scores',
                                                f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
                             pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
                 else:
@@ -472,11 +472,11 @@ class ExperimentSuite:
                         query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
 
                         # store query embeddings
-                        with open(os.path.join(root, path_res_dir, 'scores',
+                        with open(os.path.join(path_res_dir, 'scores',
                                                f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
                                   'wb') as f:
                             pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
-                        with open(os.path.join(root, path_res_dir, 'scores',
+                        with open(os.path.join(path_res_dir, 'scores',
                                                f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
                                   'wb') as f:
                             pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
@@ -485,7 +485,7 @@ class ExperimentSuite:
                         query_embeddings_init = model._query_embeddings
                         query_embeddings_final = model.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
 
-                        with open(os.path.join(root, path_res_dir, 'scores',
+                        with open(os.path.join(path_res_dir, 'scores',
                                                f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
                             pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
             # Only retrieve model performance on test dataset if we are not interested

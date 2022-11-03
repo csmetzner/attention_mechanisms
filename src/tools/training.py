@@ -10,6 +10,7 @@ This file contains source code for the training procedure of the models.
 import time
 from typing import Dict, Union, List
 import pickle
+import h5py
 
 # installed libraries
 import torch
@@ -196,15 +197,12 @@ def scoring(model,
                     logits, A, E = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
-
                     # Store attention and energy scores in batches
-                    # path_att = path_att + f'_batch{b}.pkl'
-                    # with open(path_att, 'wb') as f:
-                    #    pickle.dump(A.detach().cpu().numpy(), f)
+                    path_en = path_en + f'_batch{b}'  # add batch identifier
 
-                    path_en = path_en + f'_batch{b}.pkl'
-                    with open(path_en, 'wb') as f:
-                        pickle.dump(E.detach().cpu().numpy(), f)
+                    with h5py.File(path_en + '.hdf5', 'w') as f:
+                        df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
+
                 else:
                     logits = model(input_ids=input_ids,
                                    attention_mask=attention_mask)
@@ -216,14 +214,13 @@ def scoring(model,
 
                 if return_att_scores:
                     logits, A, E = model(X, return_att_scores)
-                    # Store attention and energy scores in batches
-                    #path_att = path_att + f'_batch{b}.pkl'
-                    # with open(path_att, 'wb') as f:
-                    #    pickle.dump(A.detach().cpu().numpy(), f)
 
-                    path_en = path_en + f'_batch{b}.pkl'
-                    with open(path_en, 'wb') as f:
-                        pickle.dump(E.detach().cpu().numpy(), f)
+                    # Store attention and energy scores in batches
+                    path_en = path_en + f'_batch{b}'  # add batch identifier
+
+                    with h5py.File(path_en + '.hdf5', 'w') as f:
+                        df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
+
 
                 else:
                     logits = model(X)
