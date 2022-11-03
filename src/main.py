@@ -12,6 +12,8 @@ import os
 import sys
 import yaml
 import pickle
+import h5py
+
 import random
 import argparse
 from typing import Dict, List, Union
@@ -402,6 +404,9 @@ class ExperimentSuite:
 
             # IF-statement if scores have to be retrieved in that run
             if return_att_scores:
+                path_res_scores = os.path.join(path_res_dir, 'scores/', 'analysis/')
+                if not os.path.exists(os.path.dirname(path_res_scores)):
+                    os.makedirs(os.path.dirname(path_res_scores))
                 print('Retrieve attention and energy scores for train, val, test splits!')
                 # re-initialize train dataloader to turn shuffle off - make it easier to assign scores to document
                 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
@@ -410,22 +415,16 @@ class ExperimentSuite:
 
                 for split, loader in zip(splits, data_loaders):
                     print(f'Testing against split: {split}')
+                    path_scores = os.path.join(root, path_res_dir, 'scores', 'analysis',
+                                           f'{self._model}_{self._att_module}_{self.seed}_{split}')
+                    print(path_scores)
                     scores = scoring(model=model,
                                      data_loader=loader,
                                      transformer=self._transformer,
                                      quartiles_indices=quartiles_indices,
                                      individual=individual,
-                                     return_att_scores=return_att_scores)
-
-                    # Store attention and energy scores in pickle files for later analysis
-                    with open(os.path.join(root, path_res_dir, 'scores',
-                                           f'{self._model}_{self._att_module}_{self.seed}_{split}_attention_scores.pkl'),
-                              'wb') as f:
-                        pickle.dump(scores['attention_scores'], file=f)
-                    with open(os.path.join(root, path_res_dir, 'scores',
-                                           f'{self._model}_{self._att_module}_{self.seed}_{split}_energy_scores.pkl'),
-                              'wb') as f:
-                        pickle.dump(scores['energy_scores'], file=f)
+                                     return_att_scores=return_att_scores,
+                                     path_scores=path_scores)
 
                     # Retrieve model performance metrics for test split
                     if split == 'test':
@@ -493,6 +492,7 @@ class ExperimentSuite:
             # Only retrieve model performance on test dataset if we are not interested
             # in attention/energy scores and queries
             else:
+                print('Hello')
                 test_scores = scoring(model=model,
                                       data_loader=test_loader,
                                       transformer=self._transformer,

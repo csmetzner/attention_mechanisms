@@ -9,6 +9,8 @@ This file contains source code for the training procedure of the models.
 # built-in libraries
 import time
 from typing import Dict, Union, List
+import pickle
+import h5py
 
 # installed libraries
 import torch
@@ -76,8 +78,8 @@ def train(model: nn.Module,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             ## if-statement for debugging the code
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
             # set gradients to zero for every new batch
             optimizer.zero_grad()
 
@@ -136,7 +138,8 @@ def scoring(model,
             transformer: bool = False,
             quartiles_indices: List[int] = None,
             individual: bool = False,
-            return_att_scores: bool = False) -> Dict[str, Union[float, np.array]]:
+            return_att_scores: bool = False,
+            path_scores: str = None) -> Dict[str, Union[float, np.array]]:
 
     """
     Parameters
@@ -176,20 +179,17 @@ def scoring(model,
 
     # Init list to keep track of losses per batch and running validation loss variable
     losses = []
-
-    # If return attention scores true then init empty arrays to collect attention and energy scores for the test data
-    # lists store scores batch-wise; need to also store document indices to re-assign documents to scores
     if return_att_scores:
-        attention_scores = []
-        energy_scores = []
-
+        #path_att = path_scores + '_att_scores'
+        path_en = path_scores + '_en_scores'
     # switch off autograd engine; reduces memory usage and increase computation speed
     with torch.no_grad():
         # loop through dataset
         for b, batch in enumerate(data_loader):
             # if statement for debugging the code
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
+
             if transformer:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
@@ -197,8 +197,15 @@ def scoring(model,
                     logits, A, E = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
-                    attention_scores.append(A.detach().cpu().numpy())
-                    energy_scores.append(E.detach().cpu().numpy())
+
+                    # Store attention and energy scores in batches
+                    # path_att = path_att + f'_batch{b}.pkl'
+                    # with open(path_att, 'wb') as f:
+                    #    pickle.dump(A.detach().cpu().numpy(), f)
+
+                    path_en = path_en + f'_batch{b}.pkl'
+                    with open(path_en, 'wb') as f:
+                        pickle.dump(E.detach().cpu().numpy(), f)
                 else:
                     logits = model(input_ids=input_ids,
                                    attention_mask=attention_mask)
@@ -210,8 +217,15 @@ def scoring(model,
 
                 if return_att_scores:
                     logits, A, E = model(X, return_att_scores)
-                    attention_scores.append(A.detach().cpu().numpy())
-                    energy_scores.append(E.detach().cpu().numpy())
+                    # Store attention and energy scores in batches
+                    #path_att = path_att + f'_batch{b}.pkl'
+                    # with open(path_att, 'wb') as f:
+                    #    pickle.dump(A.detach().cpu().numpy(), f)
+
+                    path_en = path_en + f'_batch{b}.pkl'
+                    with open(path_en, 'wb') as f:
+                        pickle.dump(E.detach().cpu().numpy(), f)
+
                 else:
                     logits = model(X)
             loss = 0
@@ -244,8 +258,4 @@ def scoring(model,
     scores['y_preds'] = y_preds_
     scores['loss'] = loss
 
-    # Store attention scores in score dictionary
-    if return_att_scores:
-        scores['attention_scores'] = attention_scores
-        scores['energy_scores'] = energy_scores
     return scores
