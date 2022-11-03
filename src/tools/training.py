@@ -10,7 +10,6 @@ This file contains source code for the training procedure of the models.
 import time
 from typing import Dict, Union, List
 import pickle
-import h5py
 
 # installed libraries
 import torch

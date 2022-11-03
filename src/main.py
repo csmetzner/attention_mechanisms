@@ -12,7 +12,6 @@ import os
 import sys
 import yaml
 import pickle
-import h5py
 
 import random
 import argparse
