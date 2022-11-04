@@ -9,7 +9,6 @@ This file contains source code for the training procedure of the models.
 # built-in libraries
 import time
 from typing import Dict, Union, List
-import pickle
 import h5py
 
 # installed libraries
@@ -198,9 +197,9 @@ def scoring(model,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
                     # Store attention and energy scores in batches
-                    path_en = path_en + f'_batch{b}'  # add batch identifier
+                    path_en_b = path_en + f'_batch{b}'  # add batch identifier
 
-                    with h5py.File(path_en + '.hdf5', 'w') as f:
+                    with h5py.File(path_en_b + '.hdf5', 'w') as f:
                         df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
 
                 else:
