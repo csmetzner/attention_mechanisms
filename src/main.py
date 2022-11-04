@@ -491,7 +491,6 @@ class ExperimentSuite:
             # Only retrieve model performance on test dataset if we are not interested
             # in attention/energy scores and queries
             else:
-                print('Hello')
                 test_scores = scoring(model=model,
                                       data_loader=test_loader,
                                       transformer=self._transformer,
