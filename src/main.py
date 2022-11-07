@@ -355,22 +355,22 @@ class ExperimentSuite:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
 
-        train(model=model,
-              train_kwargs=model_args['train_kwargs'],
-              optimizer=optimizer,
-              train_loader=train_loader,
-              transformer=self._transformer,
-              val_loader=val_loader,
-              scheduler=scheduler,
-              save_name=save_name)
+        epoch = train(model=model,
+                      train_kwargs=model_args['train_kwargs'],
+                      optimizer=optimizer,
+                      train_loader=train_loader,
+                      transformer=self._transformer,
+                      val_loader=val_loader,
+                      scheduler=scheduler,
+                      save_name=save_name,
+                      return_att_scores=return_att_scores)
 
         # Once training is completed, we want to test the performance of our model
         # To ensure we actually use the best model, we load the best model we just stored during training
         model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
         model.to(device)  # we need to cast the model to the device
 
-        # Hyperparameter tuning is done by testing the model performance on the validation set
-        # Using the validation set prevents data leakage
+        # Perform hyperparameter tuning on the validation set to prevent data leakage
         if parameter_tuning:
             print('Testing model on validation set!')
             val_scores = scoring(model=model,
@@ -383,150 +383,31 @@ class ExperimentSuite:
             store_scores(scores=val_scores,
                          model_type=self._model,
                          dataset=self._dataset,
-                         seed= self.seed,
+                         seed=self.seed,
                          train_kwargs=model_args['train_kwargs'],
                          model_kwargs=model_args['model_kwargs'],
                          path_res_dir=path_res_dir,
                          model_name=model_name,
                          quartiles=quartiles,
-                         individual=individual)
-        else:
-            # Save the test_scores to csv file
-            print('Testing model on test set!')
+                         individual=individual,
+                         epoch=epoch)
 
-            # Check if performance metrics should be computed for quartiles
+        else:
+
+            print('Testing model on test split!', flush=True)
+
+            # If true --> compute performance metrics for quartiles --> load file that indicates quartiles
             if quartiles:
-                with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}', f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}',
+                                       f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
                     quartiles_indices = pickle.load(f)
             else:
                 quartiles_indices = None
 
-            # IF-statement if scores have to be retrieved in that run
-            if return_att_scores:
-                path_res_scores = os.path.join(path_res_dir, 'scores/', 'analysis/')
-                if not os.path.exists(os.path.dirname(path_res_scores)):
-                    os.makedirs(os.path.dirname(path_res_scores))
-                print('Retrieve attention and energy scores for train, val, test splits!')
-                # re-initialize train dataloader to turn shuffle off - make it easier to assign scores to document
-                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-                data_loaders = [train_loader, val_loader, test_loader]
-                splits = ['train', 'val', 'test']
-
-                for split, loader in zip(splits, data_loaders):
-                    print(f'Testing against split: {split}')
-                    path_scores = os.path.join(path_res_dir, 'scores', 'analysis',
-                                           f'{self._model}_{self._att_module}_{self.seed}_{split}')
-                    print(path_scores)
-                    scores = scoring(model=model,
-                                     data_loader=loader,
-                                     transformer=self._transformer,
-                                     quartiles_indices=quartiles_indices,
-                                     individual=individual,
-                                     return_att_scores=return_att_scores,
-                                     path_scores=path_scores)
-
-                    # Retrieve model performance metrics for test split
-                    if split == 'test':
-                        print(f'Test loss: {scores["loss"]}', flush=True)
-
-                        store_scores(scores=scores,
-                                     model_type=self._model,
-                                     dataset=self._dataset,
-                                     seed=self.seed,
-                                     train_kwargs=model_args['train_kwargs'],
-                                     model_kwargs=model_args['model_kwargs'],
-                                     path_res_dir=path_res_dir,
-                                     model_name=model_name,
-                                     quartiles=quartiles,
-                                     individual=individual)
-
-                # Retrieve initial and final query embeddings
-                # Those are independent of the split
-                if isinstance(model, nn.DataParallel):
-                    if self._att_module.split('_')[0] == 'hierarchical':
-                        query_embeddings_cat_init = model.module._query_embeddings_cat
-                        query_embeddings_label_init = model.module._query_embeddings_label
-                        query_embeddings_cat_final = model.module.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
-                        query_embeddings_label_final = model.module.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
-
-                        # store query embeddings
-                        with open(os.path.join(path_res_dir, 'scores',
-                                               f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'), 'wb') as f:
-                            pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
-                        with open(os.path.join(path_res_dir, 'scores',
-                                               f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'), 'wb') as f:
-                            pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
-
-                    else:
-                        query_embeddings_init = model.module._query_embeddings
-                        query_embeddings_final = model.module.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
-
-                        with open(os.path.join(path_res_dir, 'scores',
-                                               f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
-                            pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
-                else:
-                    if self._att_module.split('_')[0] == 'hierarchical':
-                        if self._att_module == 'hierarchical_pretrained':
-                            query_embeddings_cat_init = model._query_embeddings_cat
-                            query_embeddings_label_init = model._query_embeddings_label
-                            query_embeddings_cat_final = model.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
-                            query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
-                            query_embeddings_cat_final_map = model.attention_layer.attention_layer.Q1_final.clone().detach().cpu().numpy()
-                            query_embeddings_label_final_map = model.attention_layer.attention_layer.Q2_final.clone().detach().cpu().numpy()
-
-                            # store query embeddings
-                            with open(os.path.join(path_res_dir, 'scores',
-                                                   f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
-                                      'wb') as f:
-                                pickle.dump([query_embeddings_cat_init,
-                                             query_embeddings_cat_final,
-                                             query_embeddings_cat_final_map], file=f)
-
-                            with open(os.path.join(path_res_dir, 'scores',
-                                                   f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
-                                      'wb') as f:
-                                pickle.dump([query_embeddings_label_init,
-                                             query_embeddings_label_final,
-                                             query_embeddings_label_final_map], file=f)
-                        else:
-                            query_embeddings_cat_init = model._query_embeddings_cat
-                            query_embeddings_label_init = model._query_embeddings_label
-                            query_embeddings_cat_final = model.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
-                            query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
-
-                            # store query embeddings
-                            with open(os.path.join(path_res_dir, 'scores',
-                                                   f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
-                                      'wb') as f:
-                                pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
-                            with open(os.path.join(path_res_dir, 'scores',
-                                                   f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
-                                      'wb') as f:
-                                pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
-
-                    else:
-                        if self._att_module == 'pretrained':
-                            query_embeddings_init = model._query_embeddings
-                            query_embeddings_final = model.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
-                            query_embeddings_final_map = model.attention_layer.attention_layer.Q_final.clone().detach().cpu().numpy()
-
-                            with open(os.path.join(path_res_dir, 'scores',
-                                                   f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'),
-                                      'wb') as f:
-                                pickle.dump([query_embeddings_init, query_embeddings_final, query_embeddings_final_map],
-                                            file=f)
-                        else:
-                            query_embeddings_init = model._query_embeddings
-                            query_embeddings_final = model.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
-
-                            with open(os.path.join(path_res_dir, 'scores',
-                                                   f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'),
-                                      'wb') as f:
-                                pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
-
-            # Only retrieve model performance on test dataset if we are not interested
-            # in attention/energy scores and queries
-            else:
+            if return_att_scores is False:
+                # Only extract performance metrics for the test split
+                print('Performing model evaluation on the test split without extraction of energy scores and query'
+                      'embeddings!', flush=True)
                 test_scores = scoring(model=model,
                                       data_loader=test_loader,
                                       transformer=self._transformer,
@@ -547,6 +428,108 @@ class ExperimentSuite:
                              quartiles=quartiles,
                              individual=individual)
 
+            # If desired retrieve attention/energy scores and query embeddings in addition to regular performance
+            # metrics by setting return_att_scores==True
+            else:
+                # Set up paths and create empty dictionaries to store scores for post-analysis
+                path_res_scores = os.path.join(path_res_dir, 'scores', 'analysis')
+                if not os.path.exists(os.path.dirname(path_res_scores)):
+                    os.makedirs(os.path.dirname(path_res_scores))
+
+                # We want to know the final attention/energy scores for all splits
+                print('Retrieve attention and energy scores for train, val, test splits!')
+                # re-initialize train dataloader with shuffle=false; easier assignment of scores to document
+                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+                data_loaders = [train_loader, val_loader, test_loader]
+
+                # Loop through all three
+                splits = ['train', 'val', 'test']
+                for split, loader in zip(splits, data_loaders):
+                    print(f'Testing against split: {split}')
+                    path_scores = os.path.join(path_res_dir, 'scores', 'analysis',
+                                           f'{self._model}_{self._att_module}_{self.seed}_{split}')
+                    scores = scoring(model=model,
+                                     data_loader=loader,
+                                     transformer=self._transformer,
+                                     quartiles_indices=quartiles_indices,
+                                     individual=individual,
+                                     return_att_scores=return_att_scores,
+                                     path_scores=path_scores)
+
+                    # Only save performance metrics scores for test split
+                    if split == 'test':
+                        print(f'Test loss: {scores["loss"]}', flush=True)
+
+                        store_scores(scores=scores,
+                                     model_type=self._model,
+                                     dataset=self._dataset,
+                                     seed=self.seed,
+                                     train_kwargs=model_args['train_kwargs'],
+                                     model_kwargs=model_args['model_kwargs'],
+                                     path_res_dir=path_res_dir,
+                                     model_name=model_name,
+                                     quartiles=quartiles,
+                                     individual=individual,
+                                     epoch=epoch)
+
+                # The following section makes sure to retrieve the appropriate scores for post-analysis
+                # 1. Analysis: Query embedding matrix
+                #   - Initial query embedding matrix
+                #   - Final query embedding matrix
+                # 2. Analysis: Token relevance per attention mechanism / text encoder architecture
+                #   - Attention Scores
+                #   - Energy Scores
+
+                # The information we are looking for are stored as model attributes - retrieval depends whether model is
+                # a DataParallel object
+                # Store data when script is ran on HPC - multiple GPUs
+                if isinstance(model, nn.DataParallel):
+                    if self._att_module.split('_')[0] == 'hierarchical':
+                        # retrieve initial and final category query matrix
+                        Q_init_cat = model.module._Q_init_cat  # retrieve initial query matrix
+                        Q_final_cat = model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy()
+                        # store category query matrix
+                        with open(
+                                os.path.join(path_res_dir, 'scores',
+                                             f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
+                                'wb') as f:
+                            pickle.dump([Q_init_cat, Q_final_cat], file=f)
+
+                    # Retrieve initial and final low-level query matrix
+                    Q_init = model.module._Q_init
+                    if self._att_module.split('_')[0] == 'hierarchical':
+                        Q_final = model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy()
+                    else:
+                        Q_final = model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy()
+
+                    with open(os.path.join(path_res_dir, 'scores',
+                                           f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
+                              'wb') as f:
+                        pickle.dump([Q_init, Q_final], file=f)
+                else:  # isinstance
+                    if self._att_module.split('_')[0] == 'hierarchical':
+                        # retrieve initial category query matrix
+                        Q_init_cat = model._Q_init_cat  # retrieve initial query matrix
+                        Q_final_cat = model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy()
+                        # store category query matrix
+                        with open(
+                                os.path.join(path_res_dir, 'scores',
+                                             f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
+                                'wb') as f:
+                            pickle.dump([Q_init_cat, Q_final_cat], file=f)
+
+                    # Retrieve initial and final low-level query matrix
+                    Q_init = model._Q_init
+                    if self._att_module.split('_')[0] == 'hierarchical':
+                        Q_final = model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy()
+                    else:
+                        Q_final = model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy()
+
+                    with open(os.path.join(path_res_dir, 'scores',
+                                           f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
+                              'wb') as f:
+                        pickle.dump([Q_init, Q_final], file=f)
+
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
                  model_type: str,
@@ -557,7 +540,8 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                  path_res_dir: str,
                  model_name: str,
                  quartiles: bool = False,
-                 individual: bool = False):
+                 individual: bool = False,
+                 epoch: int = 0):
 
     # Create results directories: predictions, models, scores
     path_res_preds = os.path.join(path_res_dir, 'predictions/')
@@ -571,6 +555,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
     columns = ['dataset',
                'seed',
+               'epoch',
                'doc_max_len',
                'batch_size',
                'patience',
@@ -589,6 +574,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     path_save_xlsx = os.path.join(path_res_scores, file_name)
     scores_to_excel = {f'{model_type}': [dataset,
                                          seed,
+                                         epoch,
                                          train_kwargs['doc_max_len'],
                                          train_kwargs['batch_size'],
                                          train_kwargs['patience'],
