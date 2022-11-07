@@ -254,6 +254,8 @@ class HierarchicalPretrainedAttention(nn.Module):
         self._mapping_layer = nn.Conv1d(in_channels=self._embedding_dim,
                                         out_channels=self._latent_doc_dim,
                                         kernel_size=1)
+        self.Q1_final = None
+        self.Q2_final = None
 
         # If multihead-attention then init additional weight layers
         if self._multihead:
@@ -333,6 +335,8 @@ class HierarchicalPretrainedAttention(nn.Module):
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
             Q2 = self._mapping_layer(Q2.permute(0, 2, 1)).permute(0, 2, 1)
+            self.Q1_final = Q1
+            self.Q2_final = Q2
             if self._scale:
                 E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:

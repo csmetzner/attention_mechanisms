@@ -466,28 +466,64 @@ class ExperimentSuite:
                             pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
                 else:
                     if self._att_module.split('_')[0] == 'hierarchical':
-                        query_embeddings_cat_init = model._query_embeddings_cat
-                        query_embeddings_label_init = model._query_embeddings_label
-                        query_embeddings_cat_final = model.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
-                        query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
+                        if self._att_module == 'hierarchical_pretrained':
+                            query_embeddings_cat_init = model._query_embeddings_cat
+                            query_embeddings_label_init = model._query_embeddings_label
+                            query_embeddings_cat_final = model.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
+                            query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
+                            query_embeddings_cat_final_map = model.attention_layer.attention_layer.Q1_final.clone().detach().cpu().numpy()
+                            query_embeddings_label_final_map = model.attention_layer.attention_layer.Q2_final.clone().detach().cpu().numpy()
 
-                        # store query embeddings
-                        with open(os.path.join(path_res_dir, 'scores',
-                                               f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
-                                  'wb') as f:
-                            pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
-                        with open(os.path.join(path_res_dir, 'scores',
-                                               f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
-                                  'wb') as f:
-                            pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
+                            # store query embeddings
+                            with open(os.path.join(path_res_dir, 'scores',
+                                                   f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
+                                      'wb') as f:
+                                pickle.dump([query_embeddings_cat_init,
+                                             query_embeddings_cat_final,
+                                             query_embeddings_cat_final_map], file=f)
+
+                            with open(os.path.join(path_res_dir, 'scores',
+                                                   f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
+                                      'wb') as f:
+                                pickle.dump([query_embeddings_label_init,
+                                             query_embeddings_label_final,
+                                             query_embeddings_label_final_map], file=f)
+                        else:
+                            query_embeddings_cat_init = model._query_embeddings_cat
+                            query_embeddings_label_init = model._query_embeddings_label
+                            query_embeddings_cat_final = model.attention_layer.attention_layer.Q1.weight.clone().detach().cpu().numpy()
+                            query_embeddings_label_final = model.attention_layer.attention_layer.Q2.weight.clone().detach().cpu().numpy()
+
+                            # store query embeddings
+                            with open(os.path.join(path_res_dir, 'scores',
+                                                   f'{self._model}_{self._att_module}_{self.seed}_cat_queries.pkl'),
+                                      'wb') as f:
+                                pickle.dump([query_embeddings_cat_init, query_embeddings_cat_final], file=f)
+                            with open(os.path.join(path_res_dir, 'scores',
+                                                   f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
+                                      'wb') as f:
+                                pickle.dump([query_embeddings_label_init, query_embeddings_label_final], file=f)
 
                     else:
-                        query_embeddings_init = model._query_embeddings
-                        query_embeddings_final = model.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
+                        if self._att_module == 'pretrained':
+                            query_embeddings_init = model._query_embeddings
+                            query_embeddings_final = model.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
+                            query_embeddings_final_map = model.attention_layer.attention_layer.Q_final.clone().detach().cpu().numpy()
 
-                        with open(os.path.join(path_res_dir, 'scores',
-                                               f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
-                            pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
+                            with open(os.path.join(path_res_dir, 'scores',
+                                                   f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'),
+                                      'wb') as f:
+                                pickle.dump([query_embeddings_init, query_embeddings_final, query_embeddings_final_map],
+                                            file=f)
+                        else:
+                            query_embeddings_init = model._query_embeddings
+                            query_embeddings_final = model.attention_layer.attention_layer.Q.weight.clone().detach().cpu().numpy()
+
+                            with open(os.path.join(path_res_dir, 'scores',
+                                                   f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'),
+                                      'wb') as f:
+                                pickle.dump([query_embeddings_init, query_embeddings_final], file=f)
+
             # Only retrieve model performance on test dataset if we are not interested
             # in attention/energy scores and queries
             else:
