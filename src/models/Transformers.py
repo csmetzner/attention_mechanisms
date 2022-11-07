@@ -107,12 +107,15 @@ class TransformerModel(nn.Module):
                                              cat_embedding_matrix=self._cat_embedding_matrix,
                                              code2cat_map=self._code2cat_map)
 
-            # Need for analysis of change in query embeddings
-            if self._att_module.split('_')[0] == 'hierarchical':
-                self._query_embeddings_cat = self.attention_layer.attention_layer.Q1.weight.clone().detach()
-                self._query_embeddings_label = self.attention_layer.attention_layer.Q2.weight.clone().detach()
-            else:
-                self._query_embeddings = self.attention_layer.attention_layer.Q.weight.clone().detach()
+            # After attention layer initialization we can retrieve the initial Q matrix
+            # .clone() is required to
+            if self._att_module.split('_')[0] == 'hierarchical':  # hierarchical_random / hierarchical_pretrained
+                # high-level query embedding matrix - categories
+                self._Q_init_cat = self.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy()
+                # low-level query embedding matrix - medical codes
+                self._Q_init = self.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy()
+            else:  # random / pretrained
+                self._Q_init = self.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy()
 
         # Init output layer
         self.output_layer = nn.Linear(in_features=self._latent_doc_dim,
