@@ -182,6 +182,8 @@ class HierarchicalRandomAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
+            # label Q and cat Q
+            self.Q_progress = [torch.mean(Q2, dim=0), self.Q1.weight]
         return C2, A2, E2
 
 
@@ -234,7 +236,6 @@ class HierarchicalPretrainedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q1_final_map = None
         self.Q_progress = None
 
 
@@ -338,15 +339,12 @@ class HierarchicalPretrainedAttention(nn.Module):
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
             Q2 = self._mapping_layer(Q2.permute(0, 2, 1)).permute(0, 2, 1)
-            self.Q1_final_map = Q1
-            self.Q_progress = Q2
             if self._scale:
                 E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
                 E1 = Q1.matmul(K.permute(0, 2, 1))
-
             A1 = F.softmax(input=E1, dim=-1)
-            C1 = A1.matmul(V)  # output shape: [batch_size, number_categories, latent_doc_dim]
+            C1 = A1.matmul(V)
             # Map context vector of the ith category to each code belong to the same category.
 
             for i, code2cat_idx in enumerate(self._code2cat_map):
@@ -362,4 +360,8 @@ class HierarchicalPretrainedAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
+
+            # Self.Q_progress contains the following query embeddings
+            # mapped label Q, init label Q, mapped cat Q, init cat Q
+            self.Q_progress = [self.Q2.weight, torch.mean(Q2, dim=0), self.Q1.weight, Q1]
         return C2, A2, E2

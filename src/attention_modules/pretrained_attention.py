@@ -100,7 +100,6 @@ class PretrainedAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q.weight)
             self.W_q.bias.data.fill_(0.01)
 
-
     def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass of target attention mechanism
@@ -137,7 +136,6 @@ class PretrainedAttention(nn.Module):
             C = torch.bmm(A, V)
         else:
             Q = self._mapping_layer(self.Q.weight.permute(1, 0)).permute(1, 0)
-            self.Q_progress = Q
 
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
@@ -146,4 +144,5 @@ class PretrainedAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
             C = A.matmul(V)
 
+            self.Q_progress = [self.Q.weight, Q]
         return C, A, E

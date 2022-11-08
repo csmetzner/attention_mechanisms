@@ -121,7 +121,6 @@ class RandomAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             Q = self.Q.weight
-            self.Q_progress = Q
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
@@ -136,4 +135,6 @@ class RandomAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
+            self.Q_progress = [self.Q.weight]
+
         return C, A, E
