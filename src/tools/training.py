@@ -68,9 +68,11 @@ def train(model: nn.Module,
     best_val_loss = np.inf
     patience_counter = 0
 
-    # Init empty array to hold query embeddings over epoch progression
+    # Init empty array to store query embeddings during training or None for returning variable
     if return_att_scores:
         queries_epochs = []
+    else:
+        queries_epochs = None
 
     ### Train model ###
     for epoch in range(epochs):
@@ -82,8 +84,8 @@ def train(model: nn.Module,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             ## if-statement for debugging the code
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
             # set gradients to zero for every new batch
             optimizer.zero_grad()
 
@@ -104,6 +106,24 @@ def train(model: nn.Module,
                 # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
                 Y = batch['Y'].to(device)
                 logits = model(X)
+
+            # Retrieve initial query embeddings;
+            if return_att_scores:
+                if (b == 0) and (epoch == 0):
+                    if isinstance(model, nn.DataParallel):
+                        Q = model.module.attention_layer.attention_layer.Q_progress
+                    else:
+                        Q = model.attention_layer.attention_layer.Q_progress
+
+                    # Need to cast to cpu and nump
+                    if len(Q) == 4:  # hierarchical_random
+                        Q[3] = Q[3].detach().clone().cpu().numpy()
+                        Q[2] = Q[2].detach().clone().cpu().numpy()
+                    if (len(Q) == 2) or (len(Q) == 4):
+                        Q[1] = Q[1].detach().clone().cpu().numpy()
+                    Q[0] = Q[0].detach().clone().cpu().numpy()
+                    queries_epochs.append(Q)
+
             # Compute loss
             loss = 0
             loss += loss_fct(logits, Y)
@@ -112,17 +132,25 @@ def train(model: nn.Module,
             optimizer.step()
             l_cpu = loss.cpu().detach().numpy()
 
-        # Get queries every fifth epoch
+        scheduler.step()
+        print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
+
+        # Save every other optimized query embedding
         if return_att_scores:
             if (epoch + 1) % 5 == 0:
                 if isinstance(model, nn.DataParallel):
-                    Q = model.module.attention_layer.attention_layer.Q_progress.detach().clone().cpu().numpy()
+                    Q = model.module.attention_layer.attention_layer.Q_progress
                 else:
-                    Q = model.attention_layer.attention_layer.Q_progress.detach().clone().cpu().numpy()
-                queries_epochs.append(Q)
+                    Q = model.attention_layer.attention_layer.Q_progress
 
-        scheduler.step()
-        print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
+                # Need to cast to cpu and nump
+                if len(Q) == 4:  # hierarchical_random
+                    Q[3] = Q[3].detach().clone().cpu().numpy()
+                    Q[2] = Q[2].detach().clone().cpu().numpy()
+                if (len(Q) == 2) or (len(Q) == 4):
+                    Q[1] = Q[1].detach().clone().cpu().numpy()
+                Q[0] = Q[0].detach().clone().cpu().numpy()
+                queries_epochs.append(Q)
 
         ### Validate model ###
         if val_loader is not None:
@@ -147,6 +175,24 @@ def train(model: nn.Module,
     # If no validation dataset available, save after every epoch
         else:
             torch.save(model.state_dict(), f'{save_name}.pt')
+
+    # retrieve final query embedding
+    if return_att_scores:
+        # Retrieves a list of query embeddings
+        if isinstance(model, nn.DataParallel):
+            Q = model.module.attention_layer.attention_layer.Q_progress
+        else:
+            Q = model.attention_layer.attention_layer.Q_progress
+
+        # Need to cast to cpu and nump
+        if len(Q) == 4:  # hierarchical_random
+            Q[3] = Q[3].detach().clone().cpu().numpy()
+            Q[2] = Q[2].detach().clone().cpu().numpy()
+        if (len(Q) == 2) or (len(Q) == 4):
+            Q[1] = Q[1].detach().clone().cpu().numpy()
+        Q[0] = Q[0].detach().clone().cpu().numpy()
+        queries_epochs.append(Q)
+    epoch = epoch + 1
     return epoch, queries_epochs
 
 
@@ -204,8 +250,8 @@ def scoring(model,
         # loop through dataset
         for b, batch in enumerate(data_loader):
             # if statement for debugging the code
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
 
             if transformer:
                 input_ids = batch['input_ids'].to(device)
