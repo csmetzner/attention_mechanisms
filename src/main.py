@@ -355,15 +355,15 @@ class ExperimentSuite:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
 
-        epoch = train(model=model,
-                      train_kwargs=model_args['train_kwargs'],
-                      optimizer=optimizer,
-                      train_loader=train_loader,
-                      transformer=self._transformer,
-                      val_loader=val_loader,
-                      scheduler=scheduler,
-                      save_name=save_name,
-                      return_att_scores=return_att_scores)
+        epoch, queries_epochs = train(model=model,
+                                      train_kwargs=model_args['train_kwargs'],
+                                      optimizer=optimizer,
+                                      train_loader=train_loader,
+                                      transformer=self._transformer,
+                                      val_loader=val_loader,
+                                      scheduler=scheduler,
+                                      save_name=save_name,
+                                      return_att_scores=return_att_scores)
 
         # Once training is completed, we want to test the performance of our model
         # To ensure we actually use the best model, we load the best model we just stored during training
@@ -484,6 +484,7 @@ class ExperimentSuite:
                 # a DataParallel object
                 # Store data when script is ran on HPC - multiple GPUs
                 if isinstance(model, nn.DataParallel):
+                    # Relevant for hierarchical-pretrained/random
                     if self._att_module.split('_')[0] == 'hierarchical':
                         # retrieve initial and final category query matrix
                         Q_init_cat = model.module._Q_init_cat  # retrieve initial query matrix
@@ -495,17 +496,28 @@ class ExperimentSuite:
                                 'wb') as f:
                             pickle.dump([Q_init_cat, Q_final_cat], file=f)
 
-                    # Retrieve initial and final low-level query matrix
+                    # Relevant for all attention mechanisms
                     Q_init = model.module._Q_init
                     if self._att_module.split('_')[0] == 'hierarchical':
                         Q_final = model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy()
                     else:
                         Q_final = model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy()
 
-                    with open(os.path.join(path_res_dir, 'scores',
-                                           f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
-                              'wb') as f:
+                    with open(os.path.join(path_res_dir, 'scores', f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'), 'wb') as f:
                         pickle.dump([Q_init, Q_final], file=f)
+
+                    # Store mapping queries
+                    if self._att_module == 'hierarchical_pretrained':
+                        Q_cat_final_map = model.module.attention_layer.attention_layer.Q1_final_map.detach().clone().cpu().numpy()
+                        Q_final_map = model.module.attention_layer.attention_layer.Q_progress.detach().clone().cpu().numpy()
+                        with open(os.path.join(path_res_dir, 'scores', f'{self._model}_{self._att_module}_{self.seed}_mapping_queries.pkl'), 'wb') as f:
+                            pickle.dump([Q_cat_final_map, Q_final_map], file=f)
+
+                    elif self._att_module == 'pretrained':
+                        Q_final_map = model.module.attention_layer.attention_layer.Q_progess.detach().clone().cpu().numpy()
+                        with open(os.path.join(path_res_dir, 'scores', f'{self._model}_{self._att_module}_{self.seed}_mapping_queries.pkl'), 'wb') as f:
+                            pickle.dump(Q_final_map, file=f)
+
                 else:  # isinstance
                     if self._att_module.split('_')[0] == 'hierarchical':
                         # retrieve initial category query matrix
@@ -526,9 +538,23 @@ class ExperimentSuite:
                         Q_final = model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy()
 
                     with open(os.path.join(path_res_dir, 'scores',
-                                           f'{self._model}_{self._att_module}_{self.seed}_label_queries.pkl'),
+                                           f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'),
                               'wb') as f:
                         pickle.dump([Q_init, Q_final], file=f)
+
+                    # Store mapping queries
+                    if self._att_module == 'hierarchical_pretrained':
+                        Q_cat_final_map = model.attention_layer.attention_layer.Q1_final_map.detach().clone().cpu().numpy()
+                        Q_final_map = model.attention_layer.attention_layer.Q2_final_map.detach().clone().cpu().numpy()
+                        with open(os.path.join(path_res_dir, 'scores', f'{self._model}_{self._att_module}_{self.seed}_mapping_queries.pkl'), 'wb') as f:
+                            pickle.dump([Q_cat_final_map, Q_final_map], file=f)
+                    elif self._att_module == 'pretrained':
+                        Q_final_map = model.attention_layer.attention_layer.Q_progress.detach().clone().cpu().numpy()
+                        with open(os.path.join(path_res_dir, 'scores', f'{self._model}_{self._att_module}_{self.seed}_mapping_queries.pkl'), 'wb') as f:
+                            pickle.dump(Q_final_map, file=f)
+
+                with open(os.path.join(path_res_dir, 'scores', f'{self._model}_{self._att_module}_{self.seed}_epoch_queries.pkl'), 'wb') as f:
+                    pickle.dump(queries_epochs, file=f)
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],

@@ -30,7 +30,8 @@ def train(model: nn.Module,
           transformer: bool = False,
           val_loader=None,
           scheduler=None,
-          save_name: str = None):
+          save_name: str = None,
+          return_att_scores: bool = False):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
@@ -67,6 +68,10 @@ def train(model: nn.Module,
     best_val_loss = np.inf
     patience_counter = 0
 
+    # Init empty array to hold query embeddings over epoch progression
+    if return_att_scores:
+        queries_epochs = []
+
     ### Train model ###
     for epoch in range(epochs):
         print(f'Epoch: {epoch + 1}', flush=True)
@@ -87,8 +92,10 @@ def train(model: nn.Module,
                 # cast input_ids and attention_mask to device
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
+
                 logits = model(input_ids=input_ids,
                                attention_mask=attention_mask)
+
                 Y = batch['labels'].to(device)
             else:
                 # Cast samples to device; token2id mapped and 0-padded documents of current batch
@@ -105,6 +112,15 @@ def train(model: nn.Module,
             optimizer.step()
             l_cpu = loss.cpu().detach().numpy()
 
+        # Get queries every fifth epoch
+        if return_att_scores:
+            if (epoch + 1) % 5 == 0:
+                if isinstance(model, nn.DataParallel):
+                    Q = model.module.attention_layer.attention_layer.Q_progress.detach().clone().cpu().numpy()
+                else:
+                    Q = model.attention_layer.attention_layer.Q_progress.detach().clone().cpu().numpy()
+                queries_epochs.append(Q)
+
         scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
@@ -116,6 +132,7 @@ def train(model: nn.Module,
                              quartiles_indices=None,
                              individual=False)
             val_loss = scores['loss']
+            scores['final_epoch'] = epoch
 
             ### Early stopping to prevent overfitting ###
             if val_loss < best_val_loss:
@@ -130,6 +147,7 @@ def train(model: nn.Module,
     # If no validation dataset available, save after every epoch
         else:
             torch.save(model.state_dict(), f'{save_name}.pt')
+    return epoch, queries_epochs
 
 
 def scoring(model,
@@ -219,7 +237,6 @@ def scoring(model,
 
                     with h5py.File(path_en + '.hdf5', 'w') as f:
                         df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
-
 
                 else:
                     logits = model(X)

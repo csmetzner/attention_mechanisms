@@ -56,7 +56,7 @@ class RandomAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q_alignment = None
+        self.Q_progress = None
 
         # Initialze query embedding matrix
         self.Q = nn.Linear(in_features=self._latent_doc_dim,
@@ -121,6 +121,7 @@ class RandomAttention(nn.Module):
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
             Q = self.Q.weight
+            self.Q_progress = Q
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
