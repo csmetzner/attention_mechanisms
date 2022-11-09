@@ -279,9 +279,9 @@ def scoring(model,
                     logits, A, E = model(X, return_att_scores)
 
                     # Store attention and energy scores in batches
-                    path_en = path_en + f'_batch{b}'  # add batch identifier
+                    path_en_b = path_en + f'_batch{b}'  # add batch identifier
 
-                    with h5py.File(path_en + '.hdf5', 'w') as f:
+                    with h5py.File(path_en_b + '.hdf5', 'w') as f:
                         df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
 
                 else:
