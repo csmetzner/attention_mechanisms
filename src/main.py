@@ -331,10 +331,16 @@ class ExperimentSuite:
         print(f'Size of training data {len(train_dataset)}, validation data {len(val_dataset)},'
               f' and testing data {len(test_dataset)}.', flush=True)
 
-        # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        if device == 'cuda':
+            # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
+        else:
+            # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
         # Initialize correct model object
         if self._model == 'CNN':
