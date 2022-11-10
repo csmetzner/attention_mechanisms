@@ -84,9 +84,9 @@ class TransformerModel(nn.Module):
         self._embedding_scaling = embedding_scaling
 
         if self._model_name == 'ClinicalLongformer':
+            #self.transformer_model = AutoModel.from_pretrained('/gpfs/alpine/world-shared/med106/metznerc/attention_mechanisms/src/models/Clinical-Longformer/')
             #self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
-            self.transformer_model = AutoModel.from_pretrained(
-                "/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/attention_mechanisms/src/models/Clinical-Longformer")
+            self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/attention_mechanisms/src/models/Clinical-Longformer")
             self._latent_doc_dim = 768
 
         # Init dropout layer
