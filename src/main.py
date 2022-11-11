@@ -358,11 +358,11 @@ class ExperimentSuite:
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
 
         try:
-            print('Loading checkpoint for current model!')
             checkpoint = torch.load(f'{save_name}_checkpoint.pt')
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
+            print('Loading checkpoint for current model!')
         except FileNotFoundError:
             print('There is no checkpoint for this model.')
             epoch = 0

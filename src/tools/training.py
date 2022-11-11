@@ -84,8 +84,6 @@ def train(model: nn.Module,
         # Enable training of layers with trainable parameters
         model.train()
 
-
-
         # Keep track of training time
         start_time = time.time()
         for b, batch in enumerate(train_loader):
