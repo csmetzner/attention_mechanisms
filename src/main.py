@@ -304,8 +304,7 @@ class ExperimentSuite:
                      f"_{model_args['model_kwargs']['dropout_p']}" \
                      f"_{model_args['model_kwargs']['multihead']}" \
                      f"_{model_args['model_kwargs']['num_heads']}" \
-                     f"_{self.seed}"\
-                     f'_{timestamp}'
+                     f"_{self.seed}"
         print(f'Name of model: {model_name}')
 
         # Create directory to store model parameters
@@ -331,16 +330,11 @@ class ExperimentSuite:
         print(f'Size of training data {len(train_dataset)}, validation data {len(val_dataset)},'
               f' and testing data {len(test_dataset)}.', flush=True)
 
-        if device == 'cuda':
-            # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
-            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
-            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
-        else:
-            # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+        # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
         # Initialize correct model object
         if self._model == 'CNN':
@@ -363,10 +357,21 @@ class ExperimentSuite:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
 
+        try:
+            print('Loading checkpoint for current model!')
+            checkpoint = torch.load(f'{save_name}_checkpoint.pt')
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch = checkpoint['epoch']
+        except FileNotFoundError:
+            print('There is no checkpoint for this model.')
+            epoch = 0
+
         epoch, queries_epochs = train(model=model,
                                       train_kwargs=model_args['train_kwargs'],
                                       optimizer=optimizer,
                                       train_loader=train_loader,
+                                      epoch=epoch,
                                       transformer=self._transformer,
                                       val_loader=val_loader,
                                       scheduler=scheduler,
@@ -482,8 +487,17 @@ class ExperimentSuite:
                                      epoch=epoch)
 
                 file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'
-                with open(os.path.join(path_res_dir, 'scores', file_name_queries), 'wb') as f:
-                    pickle.dump(queries_epochs, f)
+                path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
+                counter = 1
+                while True:
+                    if os.path.isfile(path_queries):
+                        file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries{counter}.pkl'
+                        path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
+                        counter += 1
+                    else:
+                        with open(path_queries, 'wb') as f:
+                            pickle.dump(queries_epochs, f)
+                        break
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],

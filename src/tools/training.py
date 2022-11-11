@@ -7,6 +7,7 @@ This file contains source code for the training procedure of the models.
 """
 
 # built-in libraries
+import os
 import time
 from typing import Dict, Union, List
 import h5py
@@ -27,6 +28,7 @@ def train(model: nn.Module,
           train_kwargs: Dict[str, Union[bool, int]],
           optimizer,
           train_loader,
+          epoch: int = 0,
           transformer: bool = False,
           val_loader=None,
           scheduler=None,
@@ -77,10 +79,12 @@ def train(model: nn.Module,
         queries_epochs = None
 
     ### Train model ###
-    for epoch in range(epochs):
+    for epoch in range(epoch, epochs):
         print(f'Epoch: {epoch + 1}', flush=True)
         # Enable training of layers with trainable parameters
         model.train()
+
+
 
         # Keep track of training time
         start_time = time.time()
@@ -140,6 +144,15 @@ def train(model: nn.Module,
         scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
+        # save checkpoint for current model
+        if (epoch + 1) % 2 == 0:
+            save_name_check = f'{save_name}_checkpoint.pt'
+            torch.save({'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': l_cpu},
+                       save_name_check)
+
         # Save every other optimized query embedding
         if return_att_scores:
             if (epoch + 1) % 5 == 0:
@@ -176,10 +189,14 @@ def train(model: nn.Module,
                 patience_counter += 1
                 print(f'Patience: {patience_counter}')
                 if patience_counter >= patience:
+                    os.remove(f'{save_name}_checkpoint.pt')
                     break
-    # If no validation dataset available, save after every epoch
-        else:
-            torch.save(model.state_dict(), f'{save_name}.pt')
+
+    # If training reaches final epoch store model state dict and remove last checkpoint
+    if epoch + 1 == epochs:
+        torch.save(model.state_dict(), f'{save_name}.pt')
+        os.remove(f'{save_name}_checkpoint.pt')
+
 
     # retrieve final query embedding
     if return_att_scores:
