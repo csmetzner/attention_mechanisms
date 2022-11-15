@@ -111,15 +111,9 @@ def get_scores(y_preds_: List[np.array],
 
     # Check if performance for each individual label should be computed
     if individual:
-        preds_individual = [ [] for _ in range(len(y_preds_[0]))]
-        trues_individual = [ [] for _ in range(len(y_trues_[0]))]
-        for preds, trues in zip(y_preds_, y_trues_):
-            for i, (pred, true) in enumerate(zip(preds, trues)):
-                preds_individual[i].append(pred)
-                trues_individual[i].append(true)
-
-        for i in range(len(y_preds_[0])):
-            f1_micro = f1_score(y_true=trues_individual[i], y_pred=preds_individual[i], average='micro')
+        f1_micro_ind = f1_score(y_true=y_trues_, y_pred=y_preds_, average=None)
+        print(f1_micro_ind)
+        for i, f1_micro in enumerate(f1_micro_ind):
             scores[f'f1_micro_label{i}'] = f1_micro
 
     return scores, y_preds_, y_trues_, y_probs_
