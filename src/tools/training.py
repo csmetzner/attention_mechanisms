@@ -193,7 +193,11 @@ def train(model: nn.Module,
     # If training reaches final epoch store model state dict and remove last checkpoint
     if epoch + 1 == epochs:
         torch.save(model.state_dict(), f'{save_name}.pt')
-        os.remove(f'{save_name}_checkpoint.pt')
+        try:
+            os.remove(f'{save_name}_checkpoint.pt')
+        except FileNotFoundError:
+            pass
+
 
 
     # retrieve final query embedding
