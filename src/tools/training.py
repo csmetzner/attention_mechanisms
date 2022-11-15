@@ -89,8 +89,8 @@ def train(model: nn.Module,
         for b, batch in enumerate(train_loader):
             with torch.cuda.amp.autocast(enabled=use_amp):
                 ## if-statement for debugging the code
-                if b == 1:
-                    break
+                #if b == 1:
+                #    break
                 # set gradients to zero for every new batch
                 optimizer.zero_grad()
 
@@ -274,8 +274,8 @@ def scoring(model,
         # loop through dataset
         for b, batch in enumerate(data_loader):
             # if statement for debugging the code
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
 
             if transformer:
                 input_ids = batch['input_ids'].to(device)
