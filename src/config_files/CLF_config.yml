@@ -4,7 +4,7 @@ model_kwargs:
   n_cats: ~
   embedding_dim: 100
   model_name: 'ClinicalLongformer'
-  embedding_scaling: 5
+  embedding_scaling: 0.5
   label_embedding_matrix: ~
   cat_embedding_matrix: ~
   code2cat_map: ~
