@@ -69,8 +69,6 @@ def train(model: nn.Module,
     # Variables to track validation performance and early stopping
     best_val_loss = np.inf
     patience_counter = 0
-    use_amp = True
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     # Init empty array to store query embeddings during training or None for returning variable
     if return_att_scores:
@@ -87,57 +85,55 @@ def train(model: nn.Module,
         # Keep track of training time
         start_time = time.time()
         for b, batch in enumerate(train_loader):
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                ## if-statement for debugging the code
-                #if b == 1:
-                #    break
-                # set gradients to zero for every new batch
-                optimizer.zero_grad()
+            ## if-statement for debugging the code
+            #if b == 1:
+            #    break
+            # set gradients to zero for every new batch
+            optimizer.zero_grad()
 
-                # Compute logits and return attention/energy scores if prompted
-                if transformer:
-                    # cast input_ids and attention_mask to device
-                    input_ids = batch['input_ids'].to(device)
-                    attention_mask = batch['attention_mask'].to(device)
+            # Compute logits and return attention/energy scores if prompted
+            if transformer:
+                # cast input_ids and attention_mask to device
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
 
-                    logits = model(input_ids=input_ids,
-                                   attention_mask=attention_mask)
+                logits = model(input_ids=input_ids,
+                               attention_mask=attention_mask)
 
-                    Y = batch['labels'].to(device)
-                else:
-                    # Cast samples to device; token2id mapped and 0-padded documents of current batch
-                    X = batch['X'].to(device)
-                    # Cast ground-truth labels to device; multi-label or multi-class tensors
-                    # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
-                    Y = batch['Y'].to(device)
-                    logits = model(X)
+                Y = batch['labels'].to(device)
+            else:
+                # Cast samples to device; token2id mapped and 0-padded documents of current batch
+                X = batch['X'].to(device)
+                # Cast ground-truth labels to device; multi-label or multi-class tensors
+                # Multi-label: multi-hot vectors; multi-class: class indices (tensor([0,1,2,3,4,5])
+                Y = batch['Y'].to(device)
+                logits = model(X)
 
-                # Retrieve initial query embeddings;
-                if return_att_scores:
-                    if (b == 0) and (epoch == 0):
-                        if isinstance(model, nn.DataParallel):
-                            Q = model.module.attention_layer.attention_layer.Q_progress
-                        else:
-                            Q = model.attention_layer.attention_layer.Q_progress
+            # Retrieve initial query embeddings;
+            if return_att_scores:
+                if (b == 0) and (epoch == 0):
+                    if isinstance(model, nn.DataParallel):
+                        Q = model.module.attention_layer.attention_layer.Q_progress
+                    else:
+                        Q = model.attention_layer.attention_layer.Q_progress
 
-                        # Need to cast to cpu and nump
-                        if len(Q) == 4:  # hierarchical_random
-                            Q[3] = Q[3].detach().clone().cpu().numpy()
-                            Q[2] = Q[2].detach().clone().cpu().numpy()
-                        if (len(Q) == 2) or (len(Q) == 4):
-                            Q[1] = Q[1].detach().clone().cpu().numpy()
-                        Q[0] = Q[0].detach().clone().cpu().numpy()
-                        queries_epochs.append(Q)
+                    # Need to cast to cpu and nump
+                    if len(Q) == 4:  # hierarchical_random
+                        Q[3] = Q[3].detach().clone().cpu().numpy()
+                        Q[2] = Q[2].detach().clone().cpu().numpy()
+                    if (len(Q) == 2) or (len(Q) == 4):
+                        Q[1] = Q[1].detach().clone().cpu().numpy()
+                    Q[0] = Q[0].detach().clone().cpu().numpy()
+                    queries_epochs.append(Q)
 
-                # Compute loss
-                loss = 0
-                loss += loss_fct(logits, Y)
+            # Compute loss
+            loss = 0
+            loss += loss_fct(logits, Y)
 
-                # perform backpropagation
-                scaler.scale(loss).backward()  # loss.backward()
-                scaler.step(optimizer=optimizer)  # optimizer.step()
-                scaler.update()
-                l_cpu = loss.cpu().detach().numpy()
+            # perform backpropagation
+            loss.backward()
+            optimizer.step()
+            l_cpu = loss.cpu().detach().numpy()
 
         scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
