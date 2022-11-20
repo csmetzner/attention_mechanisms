@@ -149,7 +149,7 @@ def train(model: nn.Module,
                             Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                             Q.append(Q.detach().clone().cpu().numpy())
                         elif att_module == 'hierarchical_pretrained':
-                            Q.append(model.module.attention_layer.attention_layer.Q2.weight.cpu().numpy())
+                            Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                             Q.append(Q_dh.detach().clone().cpu().numpy())
                             Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                             Q.append(Q_cat_dh.detach().clone().cpu().numpy())
@@ -204,7 +204,7 @@ def train(model: nn.Module,
                         Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                         Q.append(Q.detach().clone().cpu().numpy())
                     elif att_module == 'hierarchical_pretrained':
-                        Q.append(model.module.attention_layer.attention_layer.Q2.weight.cpu().numpy())
+                        Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                         Q.append(Q_dh.detach().clone().cpu().numpy())
                         Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                         Q.append(Q_cat_dh.detach().clone().cpu().numpy())
@@ -271,7 +271,7 @@ def train(model: nn.Module,
                 Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                 Q.append(Q.detach().clone().cpu().numpy())
             elif att_module == 'hierarchical_pretrained':
-                Q.append(model.module.attention_layer.attention_layer.Q2.weight.cpu().numpy())
+                Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                 Q.append(Q_dh.detach().clone().cpu().numpy())
                 Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                 Q.append(Q_cat_dh.detach().clone().cpu().numpy())
