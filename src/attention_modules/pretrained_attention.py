@@ -63,7 +63,7 @@ class PretrainedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q_progress = None
+        self.Q_dh = None
 
 
         # Init label embedding matrix by using linear layer
@@ -136,7 +136,7 @@ class PretrainedAttention(nn.Module):
             C = torch.bmm(A, V)
         else:
             Q = self._mapping_layer(self.Q.weight.permute(1, 0)).permute(1, 0)
-
+            self.Q_dh = Q
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
@@ -144,5 +144,4 @@ class PretrainedAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
             C = A.matmul(V)
 
-            self.Q_progress = [self.Q.weight, Q]
         return C, A, E

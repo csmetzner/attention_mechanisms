@@ -56,7 +56,7 @@ class RandomAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q_progress = None
+        self.Q_dh = None
 
         # Initialze query embedding matrix
         self.Q = nn.Linear(in_features=self._latent_doc_dim,
@@ -135,6 +135,5 @@ class RandomAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-            self.Q_progress = [self.Q.weight]
 
         return C, A, E

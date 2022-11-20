@@ -68,7 +68,7 @@ class HierarchicalRandomAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q_progress = None
+        self.Q2_dh = None
 
 
         # Initialize query matricees for hierarchical attention
@@ -183,7 +183,7 @@ class HierarchicalRandomAttention(nn.Module):
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
             # label Q and cat Q
-            self.Q_progress = [torch.mean(Q2, dim=0), self.Q1.weight]
+            self.Q2_dh = torch.mean(Q2, dim=0)
         return C2, A2, E2
 
 
@@ -236,7 +236,8 @@ class HierarchicalPretrainedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q_progress = None
+        self.Q2_dh = None
+        self.Q1_dh = None
 
 
         # Initialize query matricees for hierarchical attention
@@ -363,5 +364,6 @@ class HierarchicalPretrainedAttention(nn.Module):
 
             # Self.Q_progress contains the following query embeddings
             # mapped label Q, init label Q, mapped cat Q, init cat Q
-            self.Q_progress = [self.Q2.weight, torch.mean(Q2, dim=0), self.Q1.weight, Q1]
+            self.Q2_dh = torch.mean(Q2, dim=0)
+            self.Q1_dh = Q1
         return C2, A2, E2

@@ -376,7 +376,8 @@ class ExperimentSuite:
                                       val_loader=val_loader,
                                       scheduler=scheduler,
                                       save_name=save_name,
-                                      return_att_scores=return_att_scores)
+                                      return_att_scores=return_att_scores,
+                                      att_module=self._att_module)
 
         # Once training is completed, we want to test the performance of our model
         # To ensure we actually use the best model, we load the best model we just stored during training

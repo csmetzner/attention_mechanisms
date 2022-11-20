@@ -33,7 +33,8 @@ def train(model: nn.Module,
           val_loader=None,
           scheduler=None,
           save_name: str = None,
-          return_att_scores: bool = False):
+          return_att_scores: bool = False,
+          att_module: str=None):
     """
     This function handles training and validating the model using the given training and validation datasets.
 
@@ -86,8 +87,8 @@ def train(model: nn.Module,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             ## if-statement for debugging the code
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
             # set gradients to zero for every new batch
             optimizer.zero_grad()
 
@@ -112,10 +113,35 @@ def train(model: nn.Module,
             # Retrieve initial query embeddings;
             if return_att_scores:
                 if (b == 0) and (epoch == 0):
+                    Q = []
                     if isinstance(model, nn.DataParallel):
-                        Q = model.module.attention_layer.attention_layer.Q_progress
+                        if att_module == 'random':
+                            Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                        elif att_module == 'pretrained':
+                            Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                            Q.append(model.module.attention_layer.attention_layer.Q_dh)
+                        elif att_module == 'hierarchical_random':
+                            Q.append(model.module.attention_layer.attention_layer.Q2_dh)
+                            Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                        elif att_module == 'hierarchical_pretrained':
+                            Q.append(model.module.attention_layer.attention_layer.Q2.weight)
+                            Q.append(model.module.attention_layer.attention_layer.Q2_dh)
+                            Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                            Q.append(model.module.attention_layer.attention_layer.Q1_dh)
                     else:
-                        Q = model.attention_layer.attention_layer.Q_progress
+                        if att_module == 'random':
+                            Q.append(model.attention_layer.attention_layer.Q.weight)
+                        elif att_module == 'pretrained':
+                            Q.append(model.attention_layer.attention_layer.Q.weight)
+                            Q.append(model.attention_layer.attention_layer.Q_dh)
+                        elif att_module == 'hierarchical_random':
+                            Q.append(model.attention_layer.attention_layer.Q2_dh)
+                            Q.append(model.attention_layer.attention_layer.Q1.weight)
+                        elif att_module == 'hierarchical_pretrained':
+                            Q.append(model.attention_layer.attention_layer.Q2.weight)
+                            Q.append(model.attention_layer.attention_layer.Q2_dh)
+                            Q.append(model.attention_layer.attention_layer.Q1.weight)
+                            Q.append(model.attention_layer.attention_layer.Q1_dh)
 
                     # Need to cast to cpu and nump
                     if len(Q) == 4:  # hierarchical_random
@@ -150,10 +176,35 @@ def train(model: nn.Module,
         # Save every other optimized query embedding
         if return_att_scores:
             if (epoch + 1) % 5 == 0:
+                Q = []
                 if isinstance(model, nn.DataParallel):
-                    Q = model.module.attention_layer.attention_layer.Q_progress
+                    if att_module == 'random':
+                        Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                    elif att_module == 'pretrained':
+                        Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                        Q.append(model.module.attention_layer.attention_layer.Q_dh)
+                    elif att_module == 'hierarchical_random':
+                        Q.append(model.module.attention_layer.attention_layer.Q2_dh)
+                        Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                    elif att_module == 'hierarchical_pretrained':
+                        Q.append(model.module.attention_layer.attention_layer.Q2.weight)
+                        Q.append(model.module.attention_layer.attention_layer.Q2_dh)
+                        Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                        Q.append(model.module.attention_layer.attention_layer.Q1_dh)
                 else:
-                    Q = model.attention_layer.attention_layer.Q_progress
+                    if att_module == 'random':
+                        Q.append(model.attention_layer.attention_layer.Q.weight)
+                    elif att_module == 'pretrained':
+                        Q.append(model.attention_layer.attention_layer.Q.weight)
+                        Q.append(model.attention_layer.attention_layer.Q_dh)
+                    elif att_module == 'hierarchical_random':
+                        Q.append(model.attention_layer.attention_layer.Q2_dh)
+                        Q.append(model.attention_layer.attention_layer.Q1.weight)
+                    elif att_module == 'hierarchical_pretrained':
+                        Q.append(model.attention_layer.attention_layer.Q2.weight)
+                        Q.append(model.attention_layer.attention_layer.Q2_dh)
+                        Q.append(model.attention_layer.attention_layer.Q1.weight)
+                        Q.append(model.attention_layer.attention_layer.Q1_dh)
 
                 # Need to cast to cpu and nump
                 if len(Q) == 4:  # hierarchical_random
@@ -199,10 +250,35 @@ def train(model: nn.Module,
     # retrieve final query embedding
     if return_att_scores:
         # Retrieves a list of query embeddings
+        Q = []
         if isinstance(model, nn.DataParallel):
-            Q = model.module.attention_layer.attention_layer.Q_progress
+            if att_module == 'random':
+                Q.append(model.module.attention_layer.attention_layer.Q.weight)
+            elif att_module == 'pretrained':
+                Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                Q.append(model.module.attention_layer.attention_layer.Q_dh)
+            elif att_module == 'hierarchical_random':
+                Q.append(model.module.attention_layer.attention_layer.Q2_dh)
+                Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+            elif att_module == 'hierarchical_pretrained':
+                Q.append(model.module.attention_layer.attention_layer.Q2.weight)
+                Q.append(model.module.attention_layer.attention_layer.Q2_dh)
+                Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                Q.append(model.module.attention_layer.attention_layer.Q1_dh)
         else:
-            Q = model.attention_layer.attention_layer.Q_progress
+            if att_module == 'random':
+                Q.append(model.attention_layer.attention_layer.Q.weight)
+            elif att_module == 'pretrained':
+                Q.append(model.attention_layer.attention_layer.Q.weight)
+                Q.append(model.attention_layer.attention_layer.Q_dh)
+            elif att_module == 'hierarchical_random':
+                Q.append(model.attention_layer.attention_layer.Q2_dh)
+                Q.append(model.attention_layer.attention_layer.Q1.weight)
+            elif att_module == 'hierarchical_pretrained':
+                Q.append(model.attention_layer.attention_layer.Q2.weight)
+                Q.append(model.attention_layer.attention_layer.Q2_dh)
+                Q.append(model.attention_layer.attention_layer.Q1.weight)
+                Q.append(model.attention_layer.attention_layer.Q1_dh)
 
         # Need to cast to cpu and nump
         if len(Q) == 4:  # hierarchical_random
@@ -270,8 +346,8 @@ def scoring(model,
         # loop through dataset
         for b, batch in enumerate(data_loader):
             # if statement for debugging the code
-            #if b == 1:
-            #    break
+            if b == 1:
+                break
 
             if transformer:
                 input_ids = batch['input_ids'].to(device)
