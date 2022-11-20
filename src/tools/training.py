@@ -116,32 +116,32 @@ def train(model: nn.Module,
                     Q = []
                     if isinstance(model, nn.DataParallel):
                         if att_module == 'random':
-                            Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                            Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                         elif att_module == 'pretrained':
-                            Q.append(model.module.attention_layer.attention_layer.Q.weight)
-                            Q.append(model.module.attention_layer.attention_layer.Q_dh)
+                            Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
+                            Q.append(model.module.attention_layer.attention_layer.Q_dh.detach().clone().cpu().numpy())
                         elif att_module == 'hierarchical_random':
-                            Q.append(model.module.attention_layer.attention_layer.Q2_dh)
-                            Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                            Q.append(model.module.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                            Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                         elif att_module == 'hierarchical_pretrained':
-                            Q.append(model.module.attention_layer.attention_layer.Q2.weight)
-                            Q.append(model.module.attention_layer.attention_layer.Q2_dh)
-                            Q.append(model.module.attention_layer.attention_layer.Q1.weight)
-                            Q.append(model.module.attention_layer.attention_layer.Q1_dh)
+                            Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
+                            Q.append(model.module.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                            Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
+                            Q.append(model.module.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
                     else:
                         if att_module == 'random':
-                            Q.append(model.attention_layer.attention_layer.Q.weight)
+                            Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                         elif att_module == 'pretrained':
-                            Q.append(model.attention_layer.attention_layer.Q.weight)
-                            Q.append(model.attention_layer.attention_layer.Q_dh)
+                            Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
+                            Q.append(model.attention_layer.attention_layer.Q_dh.detach().clone().cpu().numpy())
                         elif att_module == 'hierarchical_random':
-                            Q.append(model.attention_layer.attention_layer.Q2_dh)
-                            Q.append(model.attention_layer.attention_layer.Q1.weight)
+                            Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                            Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                         elif att_module == 'hierarchical_pretrained':
-                            Q.append(model.attention_layer.attention_layer.Q2.weight)
-                            Q.append(model.attention_layer.attention_layer.Q2_dh)
-                            Q.append(model.attention_layer.attention_layer.Q1.weight)
-                            Q.append(model.attention_layer.attention_layer.Q1_dh)
+                            Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
+                            Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                            Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
+                            Q.append(model.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
 
                     # Need to cast to cpu and nump
                     if len(Q) == 4:  # hierarchical_random
@@ -179,32 +179,32 @@ def train(model: nn.Module,
                 Q = []
                 if isinstance(model, nn.DataParallel):
                     if att_module == 'random':
-                        Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                        Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                     elif att_module == 'pretrained':
-                        Q.append(model.module.attention_layer.attention_layer.Q.weight)
-                        Q.append(model.module.attention_layer.attention_layer.Q_dh)
+                        Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
+                        Q.append(model.module.attention_layer.attention_layer.Q_dh.detach().clone().cpu().numpy())
                     elif att_module == 'hierarchical_random':
-                        Q.append(model.module.attention_layer.attention_layer.Q2_dh)
-                        Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                        Q.append(model.module.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                        Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                     elif att_module == 'hierarchical_pretrained':
-                        Q.append(model.module.attention_layer.attention_layer.Q2.weight)
-                        Q.append(model.module.attention_layer.attention_layer.Q2_dh)
-                        Q.append(model.module.attention_layer.attention_layer.Q1.weight)
-                        Q.append(model.module.attention_layer.attention_layer.Q1_dh)
+                        Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
+                        Q.append(model.module.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                        Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
+                        Q.append(model.module.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
                 else:
                     if att_module == 'random':
-                        Q.append(model.attention_layer.attention_layer.Q.weight)
+                        Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                     elif att_module == 'pretrained':
-                        Q.append(model.attention_layer.attention_layer.Q.weight)
-                        Q.append(model.attention_layer.attention_layer.Q_dh)
+                        Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
+                        Q.append(model.attention_layer.attention_layer.Q_dh.detach().clone().cpu().numpy())
                     elif att_module == 'hierarchical_random':
-                        Q.append(model.attention_layer.attention_layer.Q2_dh)
-                        Q.append(model.attention_layer.attention_layer.Q1.weight)
+                        Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                        Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                     elif att_module == 'hierarchical_pretrained':
-                        Q.append(model.attention_layer.attention_layer.Q2.weight)
-                        Q.append(model.attention_layer.attention_layer.Q2_dh)
-                        Q.append(model.attention_layer.attention_layer.Q1.weight)
-                        Q.append(model.attention_layer.attention_layer.Q1_dh)
+                        Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
+                        Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                        Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
+                        Q.append(model.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
 
                 # Need to cast to cpu and nump
                 if len(Q) == 4:  # hierarchical_random
@@ -253,32 +253,32 @@ def train(model: nn.Module,
         Q = []
         if isinstance(model, nn.DataParallel):
             if att_module == 'random':
-                Q.append(model.module.attention_layer.attention_layer.Q.weight)
+                Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
             elif att_module == 'pretrained':
-                Q.append(model.module.attention_layer.attention_layer.Q.weight)
-                Q.append(model.module.attention_layer.attention_layer.Q_dh)
+                Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
+                Q.append(model.module.attention_layer.attention_layer.Q_dh.detach().clone().cpu().numpy())
             elif att_module == 'hierarchical_random':
-                Q.append(model.module.attention_layer.attention_layer.Q2_dh)
-                Q.append(model.module.attention_layer.attention_layer.Q1.weight)
+                Q.append(model.module.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
             elif att_module == 'hierarchical_pretrained':
-                Q.append(model.module.attention_layer.attention_layer.Q2.weight)
-                Q.append(model.module.attention_layer.attention_layer.Q2_dh)
-                Q.append(model.module.attention_layer.attention_layer.Q1.weight)
-                Q.append(model.module.attention_layer.attention_layer.Q1_dh)
+                Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
+                Q.append(model.module.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
+                Q.append(model.module.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
         else:
             if att_module == 'random':
-                Q.append(model.attention_layer.attention_layer.Q.weight)
+                Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
             elif att_module == 'pretrained':
-                Q.append(model.attention_layer.attention_layer.Q.weight)
-                Q.append(model.attention_layer.attention_layer.Q_dh)
+                Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
+                Q.append(model.attention_layer.attention_layer.Q_dh.detach().clone().cpu().numpy())
             elif att_module == 'hierarchical_random':
-                Q.append(model.attention_layer.attention_layer.Q2_dh)
-                Q.append(model.attention_layer.attention_layer.Q1.weight)
+                Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
             elif att_module == 'hierarchical_pretrained':
-                Q.append(model.attention_layer.attention_layer.Q2.weight)
-                Q.append(model.attention_layer.attention_layer.Q2_dh)
-                Q.append(model.attention_layer.attention_layer.Q1.weight)
-                Q.append(model.attention_layer.attention_layer.Q1_dh)
+                Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
+                Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
+                Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
+                Q.append(model.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
 
         # Need to cast to cpu and nump
         if len(Q) == 4:  # hierarchical_random
