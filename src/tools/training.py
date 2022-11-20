@@ -142,14 +142,6 @@ def train(model: nn.Module,
                             Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
                             Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                             Q.append(model.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
-
-                    # Need to cast to cpu and nump
-                    if len(Q) == 4:  # hierarchical_random
-                        Q[3] = Q[3].detach().clone().cpu().numpy()
-                        Q[2] = Q[2].detach().clone().cpu().numpy()
-                    if (len(Q) == 2) or (len(Q) == 4):
-                        Q[1] = Q[1].detach().clone().cpu().numpy()
-                    Q[0] = Q[0].detach().clone().cpu().numpy()
                     queries_epochs.append(Q)
 
             # Compute loss
@@ -205,14 +197,6 @@ def train(model: nn.Module,
                         Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
                         Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                         Q.append(model.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
-
-                # Need to cast to cpu and nump
-                if len(Q) == 4:  # hierarchical_random
-                    Q[3] = Q[3].detach().clone().cpu().numpy()
-                    Q[2] = Q[2].detach().clone().cpu().numpy()
-                if (len(Q) == 2) or (len(Q) == 4):
-                    Q[1] = Q[1].detach().clone().cpu().numpy()
-                Q[0] = Q[0].detach().clone().cpu().numpy()
                 queries_epochs.append(Q)
 
         ### Validate model ###
@@ -279,14 +263,6 @@ def train(model: nn.Module,
                 Q.append(model.attention_layer.attention_layer.Q2_dh.detach().clone().cpu().numpy())
                 Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
                 Q.append(model.attention_layer.attention_layer.Q1_dh.detach().clone().cpu().numpy())
-
-        # Need to cast to cpu and nump
-        if len(Q) == 4:  # hierarchical_random
-            Q[3] = Q[3].detach().clone().cpu().numpy()
-            Q[2] = Q[2].detach().clone().cpu().numpy()
-        if (len(Q) == 2) or (len(Q) == 4):
-            Q[1] = Q[1].detach().clone().cpu().numpy()
-        Q[0] = Q[0].detach().clone().cpu().numpy()
         queries_epochs.append(Q)
     epoch = epoch + 1
     return epoch, queries_epochs
