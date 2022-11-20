@@ -68,8 +68,6 @@ class HierarchicalRandomAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q2_dh = None
-
 
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
@@ -157,7 +155,7 @@ class HierarchicalRandomAttention(nn.Module):
                 E2 = torch.bmm(Q2, K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
             C2 = torch.bmm(A2, V)
-
+            return C2
         else:
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             if self._scale:
@@ -183,8 +181,7 @@ class HierarchicalRandomAttention(nn.Module):
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
             # label Q and cat Q
-            self.Q2_dh = torch.mean(Q2, dim=0)
-        return C2, A2, E2
+        return C2, E2, torch.mean(Q2, dim=0)
 
 
 class HierarchicalPretrainedAttention(nn.Module):
@@ -236,9 +233,6 @@ class HierarchicalPretrainedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q2_dh = None
-        self.Q1_dh = None
-
 
         # Initialize query matricees for hierarchical attention
         # Level 1: high-level category labels
@@ -336,6 +330,7 @@ class HierarchicalPretrainedAttention(nn.Module):
                 E2 = torch.bmm(Q2, K.permute(0, 2, 1))
             A2 = F.softmax(input=E2, dim=-1)
             C2 = torch.bmm(A2, V)
+            return C2
         else:
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
@@ -364,6 +359,4 @@ class HierarchicalPretrainedAttention(nn.Module):
 
             # Self.Q_progress contains the following query embeddings
             # mapped label Q, init label Q, mapped cat Q, init cat Q
-            self.Q2_dh = torch.mean(Q2, dim=0)
-            self.Q1_dh = Q1
-        return C2, A2, E2
+        return C2, E2, Q1, torch.mean(Q2, dim=0)

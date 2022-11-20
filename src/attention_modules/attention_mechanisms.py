@@ -191,10 +191,25 @@ class Attention(nn.Module):
         K = F.elu(self.K(H).permute(0, 2, 1))
         V = F.elu(self.V(H).permute(0, 2, 1))
         if self._multihead:
-            C, A, E = self.attention_layer(K=K, V=V)
+            C = self.attention_layer(K=K, V=V)
             C = transpose_output(X=C, num_heads=self._num_heads)
-            A = transpose_output(X=A, num_heads=self._num_heads)
             C = self.MH_output(C)
+            return C
         else:
-            C, A, E = self.attention_layer(K=K, V=V)
-        return C, A, E
+            if self._att_module == 'random':
+                C, E = self.attention_layer(K=K, V=V)
+                return C, E
+            elif self._att_module == 'pretrained':
+                C, E, Q_dh = self.attention_layer(K=K, V=V)
+                return C, E, Q_dh
+            elif self._att_module == 'hierarchical_random':
+                C, E, Q = self.attention_layer(K=K, V=V)
+                return C, E, Q
+            elif self._att_module == 'hierarchical_pretrained':
+                C, E, Q_cat_dh, Q_dh = self.attention_layer(K=K, V=V)
+                return C, E, Q_cat_dh, Q_dh
+            elif self._att_module == 'target':
+                C = self.attention_layer(K=K, V=V)
+                return C
+
+

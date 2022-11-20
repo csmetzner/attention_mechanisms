@@ -85,8 +85,9 @@ class TransformerModel(nn.Module):
 
         if self._model_name == 'ClinicalLongformer':
             #self.transformer_model = AutoModel.from_pretrained('/gpfs/alpine/world-shared/med106/metznerc/attention_mechanisms/src/models/Clinical-Longformer/')
-            self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
-            #self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/attention_mechanisms/src/models/Clinical-Longformer")
+            #self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
+            self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
+                                                               "attention_mechanisms/src/models/Clinical-Longformer")
             self._latent_doc_dim = 768
 
         # Init dropout layer
@@ -156,24 +157,29 @@ class TransformerModel(nn.Module):
             C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
             logits = self.output_layer(C)  # [batch_size, 1, num_labels]
             logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
-
-        else:
-            # Implementation of label attention following:
-            # https://github.com/jamesmullenbach/caml-mimic/blob/master/learn/models.py - line 188
-
-            # Label attention uses |L| query vectors to learn |L| latent document representations, where |L| is the
-            # number of labels in the label space.
-
-            C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+        elif self._att_module == 'random':
+            C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+        elif self._att_module == 'pretrained':
+            C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+        elif self._att_module == 'hierarchical_random':
+            C, E, Q = self.attention_layer(H=H.permute(0, 2, 1))
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+        elif self._att_module == 'hierarchical_pretrained':
+            C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
-            A_size = A.size()
-            A_new = torch.zeros((A_size[0], A_size[1], 3000))
-            A_new[:, :, :A_size[2]] = A
-            E_new = torch.zeros((A_size[0], A_size[1], 3000))
-            E_new[:, :, :A_size[2]] = E
-            A_new = A_new.to(device)
+            E_new = torch.zeros((E.size()[0], E.size()[1], 3000))
+            E_new[:, :, :E.size()[2]] = E
             E_new = E_new.to(device)
-            return logits, A_new, E_new
+            if self._att_module == 'random':
+                return logits, E_new
+            elif self._att_module == 'pretrained':
+                return logits, E_new, Q_dh
+            elif self._att_module == 'hierarchical_random':
+                return logits, E_new, Q
+            elif self._att_module == 'hierarchical_pretrained':
+                return logits, E_new, Q_cat_dh, Q_dh
         return logits

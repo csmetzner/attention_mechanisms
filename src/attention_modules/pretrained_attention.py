@@ -63,8 +63,6 @@ class PretrainedAttention(nn.Module):
         self._scale = scale
         self._multihead = multihead
         self._num_heads = num_heads
-        self.Q_dh = None
-
 
         # Init label embedding matrix by using linear layer
         # Q ∈ R^nxd_e where n: number of labels in |L| and d_e: embedding dimension of tokens
@@ -134,9 +132,9 @@ class PretrainedAttention(nn.Module):
                 E = torch.bmm(Q, K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
             C = torch.bmm(A, V)
+            return C
         else:
             Q = self._mapping_layer(self.Q.weight.permute(1, 0)).permute(1, 0)
-            self.Q_dh = Q
             if self._scale:
                 E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
@@ -144,4 +142,4 @@ class PretrainedAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
             C = A.matmul(V)
 
-        return C, A, E
+            return C, E, Q

@@ -116,15 +116,15 @@ class RandomAttention(nn.Module):
                 E = torch.bmm(Q, K.permute(0, 2, 1))
             A = F.softmax(input=E, dim=-1)
             C = torch.bmm(A, V)
+            return C
         else:
             # Compute energy score matrix E - dot product of query embeddings Q and key embeddings K(H): QK.T
             # where e_i represents the energy score for i-th label in the label space
             # E ∈ R^nxl where n: number of labels and l: sequence length
-            Q = self.Q.weight
             if self._scale:
-                E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
+                E = self.Q.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
-                E = Q.matmul(K.permute(0, 2, 1))
+                E = self.Q.weight.matmul(K.permute(0, 2, 1))
 
             # Compute attention weights matrix A using a distribution function g (here softmax)
             # where a_i represents the attention weights for the i-th label in the label space
@@ -135,5 +135,4 @@ class RandomAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-
-        return C, A, E
+            return C, E

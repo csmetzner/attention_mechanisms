@@ -422,7 +422,8 @@ class ExperimentSuite:
                                       transformer=self._transformer,
                                       quartiles_indices=quartiles_indices,
                                       individual=individual,
-                                      return_att_scores=model_args['train_kwargs']['return_att_scores'])
+                                      return_att_scores=model_args['train_kwargs']['return_att_scores'],
+                                      att_module=self._att_module)
 
                 print(f'Test loss: {test_scores["loss"]}', flush=True)
 
@@ -449,12 +450,14 @@ class ExperimentSuite:
 
                 print('Retrieve energy scores for train, val, test splits!', flush=True)
                 # re-initialize train dataloader with shuffle=false; easier assignment of scores to document
-                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-                data_loaders = [train_loader, val_loader, test_loader]
+                #train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+                #data_loaders = [train_loader, val_loader, test_loader]
+                data_loaders = [val_loader, test_loader]
 
                 # Loop through all three
                 # The scores are stored batchwise for each split - need to predict results for all three splits
-                splits = ['train', 'val', 'test']
+                #splits = ['train', 'val', 'test']
+                splits = ['val', 'test']
                 for split, loader in zip(splits, data_loaders):
                     print(f'Testing against {split} split.', flush=True)
 
@@ -467,7 +470,8 @@ class ExperimentSuite:
                                      quartiles_indices=quartiles_indices,
                                      individual=individual,
                                      return_att_scores=return_att_scores,
-                                     path_scores=path_scores)
+                                     path_scores=path_scores,
+                                     att_module=self._att_module)
 
                     # We also store the performance metrics for the unseen test documents
                     if split == 'test':
