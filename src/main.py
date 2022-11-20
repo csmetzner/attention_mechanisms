@@ -330,7 +330,6 @@ class ExperimentSuite:
         print(f'Size of training data {len(train_dataset)}, validation data {len(val_dataset)},'
               f' and testing data {len(test_dataset)}.', flush=True)
 
-
         # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -357,14 +356,13 @@ class ExperimentSuite:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
 
-        try:
+        if os.path.isfile(f'{save_name}_checkpoint.pt'):
+            print('Loading checkpoint for current model!')
             checkpoint = torch.load(f'{save_name}_checkpoint.pt')
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
-            print('Loading checkpoint for current model!')
-        except FileNotFoundError:
-            print('There is no checkpoint for this model.')
+        else:
             epoch = 0
 
         epoch, queries_epochs = train(model=model,
