@@ -186,6 +186,7 @@ class RNN(nn.Module):
         H, H_last = self._RNN(word_embeds)  # H = [batch_size, sequence_length, hidden_dim]
         # Add attention module here
         if self._multihead:
+            H = self.dropout_layer(H)
             C = self.attention_layer(H=H.permute(0, 2, 1))
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
         else:
