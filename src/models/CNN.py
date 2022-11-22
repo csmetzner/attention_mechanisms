@@ -188,30 +188,34 @@ class CNN(nn.Module):
 
         # Add attention module here
         # All output_layers were initialized with in_features=hidden_dim and out_features=num_labels
-        if self._att_module == 'baseline':
-            # Max-pool operation extracts the token with the largest logit
-            logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)  # [batch_size, num_labels, sequence_len]
-            logits = F.adaptive_max_pool1d(logits, 1)  # [batch_size, num_labels, 1]
-            logits = torch.flatten(logits, start_dim=1)  # [batch_size, num_labels]
+        if self._multihead:
+            C = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
+        else:
+            if self._att_module == 'baseline':
+                # Max-pool operation extracts the token with the largest logit
+                logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)  # [batch_size, num_labels, sequence_len]
+                logits = F.adaptive_max_pool1d(logits, 1)  # [batch_size, num_labels, 1]
+                logits = torch.flatten(logits, start_dim=1)  # [batch_size, num_labels]
 
-        elif self._att_module == 'target':
-            # target attention uses a one query vector to learn a single latent document representation
-            C = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
-            logits = self.output_layer(C)  # [batch_size, 1, num_labels]
-            logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
+            elif self._att_module == 'target':
+                # target attention uses a one query vector to learn a single latent document representation
+                C = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
+                logits = self.output_layer(C)  # [batch_size, 1, num_labels]
+                logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
 
-        elif self._att_module == 'random':
-            C, E = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'pretrained':
-            C, E, Q_dh = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'hierarchical_random':
-            C, E, Q = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'hierarchical_pretrained':
-            C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H)
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'random':
+                C, E = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'pretrained':
+                C, E, Q_dh = self.attention_layer(H=H)
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'hierarchical_random':
+                C, E, Q = self.attention_layer(H=H)
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'hierarchical_pretrained':
+                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H)
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
             E_new = torch.zeros((E.size()[0], E.size()[1], 3000))

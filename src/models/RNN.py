@@ -185,34 +185,37 @@ class RNN(nn.Module):
         # Compute document representations using the RNN
         H, H_last = self._RNN(word_embeds)  # H = [batch_size, sequence_length, hidden_dim]
         # Add attention module here
-        if self._att_module == 'baseline':
-            # 2. Method: Average hidden-states over all time steps
-            H = torch.mean(H, dim=1)
-            H = self.dropout_layer(H)
-            logits = self.output_layer(H)
-        elif self._att_module == 'target':
-            # target attention uses a one query vector to learn a single latent document representation
-            H = self.dropout_layer(H)
-            C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
-            logits = self.output_layer(C)  # [batch_size, 1, num_labels]
-            logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
-
-        elif self._att_module == 'random':
-            H = self.dropout_layer(H)
-            C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+        if self._multihead:
+            C = self.attention_layer(H=H.permute(0, 2, 1))
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'pretrained':
-            H = self.dropout_layer(H)
-            C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'hierarchical_random':
-            H = self.dropout_layer(H)
-            C, E, Q = self.attention_layer(H=H.permute(0, 2, 1))
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'hierarchical_pretrained':
-            H = self.dropout_layer(H)
-            C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+        else:
+            if self._att_module == 'baseline':
+                # 2. Method: Average hidden-states over all time steps
+                H = torch.mean(H, dim=1)
+                H = self.dropout_layer(H)
+                logits = self.output_layer(H)
+            elif self._att_module == 'target':
+                # target attention uses a one query vector to learn a single latent document representation
+                H = self.dropout_layer(H)
+                C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+                logits = self.output_layer(C)  # [batch_size, 1, num_labels]
+                logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
+            elif self._att_module == 'random':
+                H = self.dropout_layer(H)
+                C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'pretrained':
+                H = self.dropout_layer(H)
+                C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'hierarchical_random':
+                H = self.dropout_layer(H)
+                C, E, Q = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'hierarchical_pretrained':
+                H = self.dropout_layer(H)
+                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
             E_new = torch.zeros((E.size()[0], E.size()[1], 3000))

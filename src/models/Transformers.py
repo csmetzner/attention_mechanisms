@@ -85,9 +85,9 @@ class TransformerModel(nn.Module):
 
         if self._model_name == 'ClinicalLongformer':
             #self.transformer_model = AutoModel.from_pretrained('/gpfs/alpine/world-shared/med106/metznerc/attention_mechanisms/src/models/Clinical-Longformer/')
-            #self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
-            self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
-                                                               "attention_mechanisms/src/models/Clinical-Longformer")
+            self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
+            #self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
+            #                                                   "attention_mechanisms/src/models/Clinical-Longformer")
             self._latent_doc_dim = 768
 
         # Init dropout layer
@@ -145,30 +145,33 @@ class TransformerModel(nn.Module):
         # Retrieve latent document representation of last layer in transformer model
         H = H['hidden_states'][-1]
         H = self.dropout_layer(H)  # [batch_size, sequence_len == 4096, hidden_dim == 768]
+        if self._multihead:
+            C = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
+        else:
+            if self._att_module == 'baseline':
+                # The baseline approach of the clinical longformer uses the latent document representation of the first
+                # token of the sequence [<s>]
+                H = H[:, 0, :]  # [batch_size, hidden_dim]
+                logits = self.output_layer(H)  # [batch_size, num_labels]
 
-        if self._att_module == 'baseline':
-            # The baseline approach of the clinical longformer uses the latent document representation of the first
-            # token of the sequence [<s>]
-            H = H[:, 0, :]  # [batch_size, hidden_dim]
-            logits = self.output_layer(H)  # [batch_size, num_labels]
-
-        elif self._att_module == 'target':
-            # target attention uses a one query vector to learn a single latent document representation
-            C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
-            logits = self.output_layer(C)  # [batch_size, 1, num_labels]
-            logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
-        elif self._att_module == 'random':
-            C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'pretrained':
-            C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'hierarchical_random':
-            C, E, Q = self.attention_layer(H=H.permute(0, 2, 1))
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-        elif self._att_module == 'hierarchical_pretrained':
-            C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
-            logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'target':
+                # target attention uses a one query vector to learn a single latent document representation
+                C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+                logits = self.output_layer(C)  # [batch_size, 1, num_labels]
+                logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
+            elif self._att_module == 'random':
+                C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'pretrained':
+                C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'hierarchical_random':
+                C, E, Q = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
+            elif self._att_module == 'hierarchical_pretrained':
+                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
             E_new = torch.zeros((E.size()[0], E.size()[1], 3000))

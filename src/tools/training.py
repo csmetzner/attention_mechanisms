@@ -354,8 +354,8 @@ def scoring(model,
         # loop through dataset
         for b, batch in enumerate(data_loader):
             # if statement for debugging the code
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
 
             if transformer:
                 input_ids = batch['input_ids'].to(device)
