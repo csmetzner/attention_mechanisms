@@ -198,7 +198,7 @@ class RNN(nn.Module):
             elif self._att_module == 'target':
                 # target attention uses a one query vector to learn a single latent document representation
                 H = self.dropout_layer(H)
-                C, A, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+                C = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
             elif self._att_module == 'random':
