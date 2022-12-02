@@ -87,8 +87,8 @@ def train(model: nn.Module,
         start_time = time.time()
         for b, batch in enumerate(train_loader):
             ## if-statement for debugging the code
-            if b == 1:
-                break
+            #if b == 1:
+            #    break
             # set gradients to zero for every new batch
             optimizer.zero_grad()
 
@@ -107,7 +107,7 @@ def train(model: nn.Module,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
                     elif att_module == 'hierarchical_random':
-                        logits, E, Q = model(input_ids=input_ids,
+                        logits, E, Q_dh = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
                     elif att_module == 'hierarchical_pretrained':
@@ -129,7 +129,7 @@ def train(model: nn.Module,
                     elif att_module == 'pretrained':
                         logits, E, Q_dh = model(X, return_att_scores)
                     elif att_module == 'hierarchical_random':
-                        logits, E, Q = model(X, return_att_scores)
+                        logits, E, Q_dh = model(X, return_att_scores)
                     elif att_module == 'hierarchical_pretrained':
                         logits, E, Q_cat_dh, Q_dh = model(X, return_att_scores)
                 else:
@@ -150,7 +150,7 @@ def train(model: nn.Module,
                         elif att_module == 'hierarchical_random':
                             Q.append(
                                 model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                            Q.append(Q.detach().clone().cpu().numpy()[:50])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_pretrained':
                             Q.append(
                                 model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
@@ -166,7 +166,7 @@ def train(model: nn.Module,
                             Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_random':
                             Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                            Q.append(Q.detach().clone().cpu().numpy()[:50])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_pretrained':
                             Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                             Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
@@ -207,7 +207,7 @@ def train(model: nn.Module,
                         Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_random':
                         Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                        Q.append(Q.detach().clone().cpu().numpy()[:50])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_pretrained':
                         Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                         Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
@@ -221,7 +221,7 @@ def train(model: nn.Module,
                         Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_random':
                         Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                        Q.append(Q.detach().clone().cpu().numpy()[:50])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_pretrained':
                         Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                         Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
@@ -274,7 +274,7 @@ def train(model: nn.Module,
                 Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_random':
                 Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                Q.append(Q.detach().clone().cpu().numpy()[:50])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_pretrained':
                 Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                 Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
@@ -288,7 +288,7 @@ def train(model: nn.Module,
                 Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_random':
                 Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                Q.append(Q.detach().clone().cpu().numpy()[:50])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_pretrained':
                 Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
                 Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
@@ -370,7 +370,7 @@ def scoring(model,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
                     elif att_module == 'hierarchical_random':
-                        logits, E, Q = model(input_ids=input_ids,
+                        logits, E, Q_dh = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          return_att_scores=return_att_scores)
                     elif att_module == 'hierarchical_pretrained':
@@ -398,7 +398,7 @@ def scoring(model,
                     elif att_module == 'pretrained':
                         logits, E, Q_dh = model(X, return_att_scores)
                     elif att_module == 'hierarchical_random':
-                        logits, E, Q = model(X, return_att_scores)
+                        logits, E, Q_dh = model(X, return_att_scores)
                     elif att_module == 'hierarchical_pretrained':
                         logits, E, Q_cat_dh, Q_dh = model(X, return_att_scores)
 
