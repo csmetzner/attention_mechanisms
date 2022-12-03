@@ -389,7 +389,8 @@ class ExperimentSuite:
                                  data_loader=test_loader,
                                  transformer=self._transformer,
                                  quartiles_indices=None,
-                                 individual=individual)
+                                 individual=individual,
+                                 att_module=self._att_module)
             print(f'Tuning Validation loss: {val_scores["loss"]}', flush=True)
 
             store_scores(scores=val_scores,
@@ -565,7 +566,15 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
         scores_to_excel[f'{model_type}'].append(value)
 
     df = pd.DataFrame.from_dict(data=scores_to_excel, orient='index', columns=columns)
+    """
+    file_name = f'scores.csv'
+    path_save_csv = os.path.join(path_res_scores, file_name)
 
+    if os.path.isfile(path=path_save_csv):
+        df.to_csv(path_save_csv, mode='a', header=False)
+    else:
+        df.to_csv(path_save_csv, header=columns)
+   """
     if os.path.isfile(path=path_save_xlsx):
         writer = pd.ExcelWriter(path=path_save_xlsx, engine='openpyxl', mode='a', if_sheet_exists='overlay')
         df.to_excel(excel_writer=writer,
