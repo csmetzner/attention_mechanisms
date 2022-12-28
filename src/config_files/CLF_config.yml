@@ -2,7 +2,7 @@ model: 'ClinicalLongformer'
 model_kwargs:
   n_labels: ~
   n_cats: ~
-  embedding_dim: 100
+  embedding_dim: 300
   model_name: 'ClinicalLongformer'
   embedding_scaling: 0.5
   label_embedding_matrix: ~
