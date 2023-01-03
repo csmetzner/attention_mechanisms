@@ -174,7 +174,7 @@ class TransformerModel(nn.Module):
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
-            E_new = torch.zeros((E.size()[0], E.size()[1], 3000))
+            E_new = torch.zeros((E.size()[0], E.size()[1], 4096))
             E_new[:, :, :E.size()[2]] = E
             E_new = E_new.to(device)
             if self._att_module == 'random':

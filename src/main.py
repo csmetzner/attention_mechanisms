@@ -600,7 +600,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
     with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), "rb") as f:
         class_names = pickle.load(f)
 
-    with open(os.path.join(path_res_preds, f'{model_name}_test.txt'), 'w') as file:
+    with open(os.path.join(path_res_preds, f'{model_name}_test_preds.txt'), 'w') as file:
         for hadm_id, y_pred_doc in zip(ids.HADM_ID.tolist(), scores['y_preds']):
             row = f'{hadm_id}'
             for label, y_pred in zip(class_names, y_pred_doc):
@@ -608,6 +608,15 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                     row += f'|{label}'
             row += '\n'
             file.write(row)
+    with open(os.path.join(path_res_preds, f'{model_name}_test_probs.txt'), 'w') as file:
+        for hadm_id, y_prob_doc in zip(ids.HADM_ID.tolist(), scores['y_probs']):
+            row = f'{hadm_id}'
+            for label, y_prob in zip(class_names, y_prob_doc):
+                row += f'|{y_prob}'
+            row += '\n'
+            file.write(row)
+    
+
 
     if quartiles:
         metrics = []
