@@ -85,9 +85,9 @@ class TransformerModel(nn.Module):
 
         if self._model_name == 'ClinicalLongformer':
             #self.transformer_model = AutoModel.from_pretrained('/gpfs/alpine/world-shared/med106/metznerc/attention_mechanisms/src/models/Clinical-Longformer/')
-            self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
-            #self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
-            #                                                   "attention_mechanisms/src/models/Clinical-Longformer")
+            #self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
+            self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
+                                                               "attention_mechanisms/src/models/Clinical-Longformer")
             self._latent_doc_dim = 768
 
         # Init dropout layer
@@ -117,7 +117,8 @@ class TransformerModel(nn.Module):
     def forward(self,
                 input_ids: torch.Tensor,
                 attention_mask: torch.Tensor,
-                return_att_scores: bool=False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+                return_att_scores: bool=False,
+                get_hierarchical_energy: bool=False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of transformer model
 
@@ -157,7 +158,7 @@ class TransformerModel(nn.Module):
 
             elif self._att_module == 'target':
                 # target attention uses a one query vector to learn a single latent document representation
-                C = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
+                C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
             elif self._att_module == 'random':
@@ -167,16 +168,19 @@ class TransformerModel(nn.Module):
                 C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
             elif self._att_module == 'hierarchical_random':
-                C, E, Q = self.attention_layer(H=H.permute(0, 2, 1))
+                C, E, Q = self.attention_layer(H=H.permute(0, 2, 1), get_hierarchical_energy=get_hierarchical_energy)
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
             elif self._att_module == 'hierarchical_pretrained':
-                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
+                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1), get_hierarchical_energy=get_hierarchical_energy)
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
-            E_new = torch.zeros((E.size()[0], E.size()[1], 4096))
-            E_new[:, :, :E.size()[2]] = E
-            E_new = E_new.to(device)
+            if get_hierarchical_energy:
+                E_new = E
+            else:
+                E_new = torch.zeros((E.size()[0], E.size()[1], 4096))
+                E_new[:, :, :E.size()[2]] = E
+                E_new = E_new.to(device)
             if self._att_module == 'random':
                 return logits, E_new
             elif self._att_module == 'pretrained':
@@ -185,4 +189,4 @@ class TransformerModel(nn.Module):
                 return logits, E_new, Q
             elif self._att_module == 'hierarchical_pretrained':
                 return logits, E_new, Q_cat_dh, Q_dh
-        return logits
+        return logits, C

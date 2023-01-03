@@ -12,7 +12,7 @@ import os
 import sys
 import yaml
 import pickle
-import h5py
+from collections import OrderedDict
 
 
 import random
@@ -37,7 +37,7 @@ from tools import dataloaders
 from tools.training import train, scoring
 from models.CNN import CNN
 from models.RNN import RNN
-from models.Transformers import TransformerModel
+from models.Transformers import TransformerModel, AutoModel
 
 # get root path
 try:
@@ -68,6 +68,7 @@ class ExperimentSuite:
         self._att_module = att_module
         self.seed = seed
         self._model_args = None
+        self._train = True
 
         # Flag to indicate that we use a huggingface-based transformer model
         if self._model == 'CLF':
@@ -347,6 +348,13 @@ class ExperimentSuite:
         else:
             raise Exception('Invalid model type!')
 
+        n = 0
+        for parameter in model.parameters():
+            print(parameter.size())
+            n += parameter.size()[0]
+        print(n)
+        quit()
+
         # Set up parallel computing if possible
         model.to(device)
         if torch.cuda.device_count() > 1:
@@ -356,79 +364,45 @@ class ExperimentSuite:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999))
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=optimizer, total_iters=5)
 
-        if os.path.isfile(f'{save_name}_checkpoint.pt'):
-            print('Loading checkpoint for current model!')
-            checkpoint = torch.load(f'{save_name}_checkpoint.pt')
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            epoch = checkpoint['epoch']
-        else:
-            epoch = 0
-
-        epoch, queries_epochs = train(model=model,
-                                      train_kwargs=model_args['train_kwargs'],
-                                      optimizer=optimizer,
-                                      train_loader=train_loader,
-                                      epoch=epoch,
-                                      transformer=self._transformer,
-                                      val_loader=val_loader,
-                                      scheduler=scheduler,
-                                      save_name=save_name,
-                                      return_att_scores=return_att_scores,
-                                      att_module=self._att_module)
-
-        # Once training is completed, we want to test the performance of our model
-        # To ensure we actually use the best model, we load the best model we just stored during training
-        model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
-        model.to(device)  # we need to cast the model to the device
-
-        # Perform hyperparameter tuning on the validation set to prevent data leakage
-        if parameter_tuning:
-            print('Testing model on validation set!')
-            val_scores = scoring(model=model,
-                                 data_loader=test_loader,
-                                 transformer=self._transformer,
-                                 quartiles_indices=None,
-                                 individual=individual,
-                                 att_module=self._att_module)
-            print(f'Tuning Validation loss: {val_scores["loss"]}', flush=True)
-
-            store_scores(scores=val_scores,
-                         model_type=self._model,
-                         dataset=self._dataset,
-                         seed=self.seed,
-                         train_kwargs=model_args['train_kwargs'],
-                         model_kwargs=model_args['model_kwargs'],
-                         path_res_dir=path_res_dir,
-                         model_name=model_name,
-                         quartiles=quartiles,
-                         individual=individual,
-                         epoch=epoch)
-
-        else:
-            # If true --> compute performance metrics for quartiles --> load file that indicates quartiles
-            if quartiles:
-                with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}',
-                                       f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
-                    quartiles_indices = pickle.load(f)
+        if self._train:
+            if os.path.isfile(f'{save_name}_checkpoint.pt'):
+                print('Loading checkpoint for current model!')
+                checkpoint = torch.load(f'{save_name}_checkpoint.pt')
+                model.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                epoch = checkpoint['epoch']
             else:
-                quartiles_indices = None
+                epoch = 0
 
-            if return_att_scores is False:
-                # The following section only retrieves performance metrics for the model tested on the test split
-                print('Performing model evaluation on the test split without extraction of energy scores and query '
-                      'embeddings!', flush=True)
-                test_scores = scoring(model=model,
-                                      data_loader=test_loader,
-                                      transformer=self._transformer,
-                                      quartiles_indices=quartiles_indices,
-                                      individual=individual,
-                                      return_att_scores=model_args['train_kwargs']['return_att_scores'],
-                                      att_module=self._att_module)
+            epoch, queries_epochs = train(model=model,
+                                          train_kwargs=model_args['train_kwargs'],
+                                          optimizer=optimizer,
+                                          train_loader=train_loader,
+                                          epoch=epoch,
+                                          transformer=self._transformer,
+                                          val_loader=val_loader,
+                                          scheduler=scheduler,
+                                          save_name=save_name,
+                                          return_att_scores=return_att_scores,
+                                          att_module=self._att_module)
 
-                print(f'Test loss: {test_scores["loss"]}', flush=True)
+            # Once training is completed, we want to test the performance of our model
+            # To ensure we actually use the best model, we load the best model we just stored during training
+            model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
+            model.to(device)  # we need to cast the model to the device
 
-                store_scores(scores=test_scores,
+            # Perform hyperparameter tuning on the validation set to prevent data leakage
+            if parameter_tuning:
+                print('Testing model on validation set!')
+                val_scores = scoring(model=model,
+                                     data_loader=test_loader,
+                                     transformer=self._transformer,
+                                     quartiles_indices=None,
+                                     individual=individual,
+                                     att_module=self._att_module)
+                print(f'Tuning Validation loss: {val_scores["loss"]}', flush=True)
+
+                store_scores(scores=val_scores,
                              model_type=self._model,
                              dataset=self._dataset,
                              seed=self.seed,
@@ -440,68 +414,254 @@ class ExperimentSuite:
                              individual=individual,
                              epoch=epoch)
 
-            # The following section retrieves and stores energy scores and query embeddings
-            # across train, val, test split.
             else:
+                # If true --> compute performance metrics for quartiles --> load file that indicates quartiles
+                if quartiles:
+                    with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}',
+                                           f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                        quartiles_indices = pickle.load(f)
+                else:
+                    quartiles_indices = None
 
-                # Set up path to store attention or energy scores
-                path_res_scores = os.path.join(path_res_dir, 'scores/', 'analysis/')
-                if not os.path.exists(os.path.dirname(path_res_scores)):
-                    os.makedirs(os.path.dirname(path_res_scores))
+                if return_att_scores is False:
+                    # The following section only retrieves performance metrics for the model tested on the test split
+                    print('Performing model evaluation on the test split without extraction of energy scores and query '
+                          'embeddings!', flush=True)
+                    test_scores = scoring(model=model,
+                                          data_loader=test_loader,
+                                          transformer=self._transformer,
+                                          quartiles_indices=quartiles_indices,
+                                          individual=individual,
+                                          return_att_scores=model_args['train_kwargs']['return_att_scores'],
+                                          att_module=self._att_module)
 
-                print('Retrieve energy scores for train, val, test splits!', flush=True)
-                # re-initialize train dataloader with shuffle=false; easier assignment of scores to document
-                #train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-                #data_loaders = [train_loader, val_loader, test_loader]
-                data_loaders = [val_loader, test_loader]
+                    print(f'Test loss: {test_scores["loss"]}', flush=True)
 
-                # Loop through all three
-                # The scores are stored batchwise for each split - need to predict results for all three splits
-                #splits = ['train', 'val', 'test']
-                splits = ['val', 'test']
-                for split, loader in zip(splits, data_loaders):
-                    print(f'Testing against {split} split.', flush=True)
+                    store_scores(scores=test_scores,
+                                 model_type=self._model,
+                                 dataset=self._dataset,
+                                 seed=self.seed,
+                                 train_kwargs=model_args['train_kwargs'],
+                                 model_kwargs=model_args['model_kwargs'],
+                                 path_res_dir=path_res_dir,
+                                 model_name=model_name,
+                                 quartiles=quartiles,
+                                 individual=individual,
+                                 epoch=epoch)
+                # The following section retrieves and stores energy scores and query embeddings
+                # across train, val, test split.
+                else:
 
-                    path_scores = os.path.join(path_res_dir, 'scores', 'analysis',
-                                           f'{self._model}_{self._att_module}_{self.seed}_{split}')
+                    # Set up path to store attention or energy scores
+                    path_res_scores = os.path.join(path_res_dir, 'scores/', 'analysis/')
+                    if not os.path.exists(os.path.dirname(path_res_scores)):
+                        os.makedirs(os.path.dirname(path_res_scores))
 
-                    scores = scoring(model=model,
-                                     data_loader=loader,
-                                     transformer=self._transformer,
-                                     quartiles_indices=quartiles_indices,
-                                     individual=individual,
-                                     return_att_scores=return_att_scores,
-                                     path_scores=path_scores,
-                                     att_module=self._att_module)
+                    print('Retrieve energy scores for train, val, test splits!', flush=True)
+                    # re-initialize train dataloader with shuffle=false; easier assignment of scores to document
+                    #train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+                    #data_loaders = [train_loader, val_loader, test_loader]
+                    data_loaders = [val_loader, test_loader]
 
-                    # We also store the performance metrics for the unseen test documents
-                    if split == 'test':
-                        print(f'Test loss: {scores["loss"]}', flush=True)
+                    # Loop through all three
+                    # The scores are stored batchwise for each split - need to predict results for all three splits
+                    #splits = ['train', 'val', 'test']
+                    splits = ['val', 'test']
+                    for split, loader in zip(splits, data_loaders):
+                        print(f'Testing against {split} split.', flush=True)
 
-                        store_scores(scores=scores,
-                                     model_type=self._model,
-                                     dataset=self._dataset,
-                                     seed=self.seed,
-                                     train_kwargs=model_args['train_kwargs'],
-                                     model_kwargs=model_args['model_kwargs'],
-                                     path_res_dir=path_res_dir,
-                                     model_name=model_name,
-                                     quartiles=quartiles,
-                                     individual=individual,
-                                     epoch=epoch)
+                        path_scores = os.path.join(path_res_dir, 'scores', 'analysis',
+                                               f'{self._model}_{self._att_module}_{self.seed}_{split}')
 
-                file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'
-                path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
-                counter = 1
-                while True:
-                    if os.path.isfile(path_queries):
-                        file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries{counter}.pkl'
-                        path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
-                        counter += 1
-                    else:
-                        with open(path_queries, 'wb') as f:
-                            pickle.dump(queries_epochs, f)
-                        break
+                        scores = scoring(model=model,
+                                         data_loader=loader,
+                                         transformer=self._transformer,
+                                         quartiles_indices=quartiles_indices,
+                                         individual=individual,
+                                         return_att_scores=return_att_scores,
+                                         path_scores=path_scores,
+                                         att_module=self._att_module)
+
+                        # We also store the performance metrics for the unseen test documents
+                        if split == 'test':
+                            print(f'Test loss: {scores["loss"]}', flush=True)
+
+                            store_scores(scores=scores,
+                                         model_type=self._model,
+                                         dataset=self._dataset,
+                                         seed=self.seed,
+                                         train_kwargs=model_args['train_kwargs'],
+                                         model_kwargs=model_args['model_kwargs'],
+                                         path_res_dir=path_res_dir,
+                                         model_name=model_name,
+                                         quartiles=quartiles,
+                                         individual=individual,
+                                         epoch=epoch)
+
+                    file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'
+                    path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
+                    counter = 1
+                    while True:
+                        if os.path.isfile(path_queries):
+                            file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries{counter}.pkl'
+                            path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
+                            counter += 1
+                        else:
+                            with open(path_queries, 'wb') as f:
+                                pickle.dump(queries_epochs, f)
+                            break
+        else:
+            print(save_name)
+            # Once training is completed, we want to test the performance of our model
+            # To ensure we actually use the best model, we load the best model we just stored during training
+            model.load_state_dict(torch.load(os.path.join(f'{save_name}.pt')))
+            model.to(device)  # we need to cast the model to the device
+
+    def predict(self, path_model: str,
+                model_args: Dict[str, Union[str, Dict[str, Union[str, int, List[Union[int, float]]]]]],
+                X: List[np.array],
+                Y: List[np.array],
+                path_res_dir: str,
+                get_hierarchical_energy: bool = False):
+        """
+        This function uses an already trained model to predict on a given dataset.
+
+        Parameters
+        ----------
+        path_model : str
+            Absolute path to location of pretrained model
+        model_args : Dict[str, Union[str, Dict[str, Union[str, int, List[Union[int, float]]]]]]
+            Nested dictionaries containing model-kwargs and training-kwargs
+        X : List[np.array]
+            List containing the document sequences for the training, testing, and validation split
+        Y : List[np.array]
+            List containing the ground-truth labels related to the document in the training testing and validation split
+        path_res_dir : str
+            Absolute path to storage location of results; final directory name is given by the user through the -en arg
+
+        Returns
+        -------
+
+        """
+        # Retrieve model name
+        model_name = path_model.split('/')[-1].split('.pt')[0]
+        # Retrieve train kwargs
+        doc_max_len = model_args['train_kwargs']['doc_max_len']
+        batch_size = model_args['train_kwargs']['batch_size']
+        return_att_scores = model_args['train_kwargs']['return_att_scores']
+
+        # Check for required computation of performance metrics for quartiles and/or each individual labels
+        quartiles = model_args['train_kwargs']['quartiles']
+        individual = model_args['train_kwargs']['individual']
+        # Set up path to store attention or energy scores
+        path_res_scores = os.path.join(path_res_dir, 'scores/', 'analysis/')
+        if not os.path.exists(os.path.dirname(path_res_scores)):
+            os.makedirs(os.path.dirname(path_res_scores))
+
+        # Load dataloader for MIMIC-III dataset
+        Data = dataloaders.MimicData
+        # Testing dataset
+        test_dataset = Data(X=X[2], Y=Y[2], transformer=self._transformer, doc_max_len=doc_max_len)
+
+        # Setup pytorch DataLoader objects with training, validation, and testing dataset. Set shuffle to True for train
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+        # Initialize correct model object
+        if self._model == 'CNN':
+            model = CNN(**model_args['model_kwargs'])
+        elif self._model == 'BiLSTM':
+            model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'BiGRU':
+            model = RNN(**model_args['model_kwargs'])
+        elif self._model == 'CLF':
+            model = TransformerModel(**model_args['model_kwargs'])
+        else:
+            raise Exception('Invalid model type!')
+
+        # Set up parallel computing if possible
+        model.to(device)
+        #if torch.cuda.device_count() > 1:
+        #    model = torch.nn.DataParallel(model)
+
+        # Since some models were stored as dataparallel objects their state dicts will have an additional prefix
+        # "module." at the front of the each regular layer of the model. To be able to load the state dict into our
+        # models we have to remove them
+
+        if self._model != 'CNN':
+            model = load_trainedModel_cpu(model_path=path_model, model=model, model_name=self._model, device=device)
+        else:
+            model.load_state_dict(torch.load(os.path.join(f'{path_model}'), map_location=torch.device(device)))
+        model.to(device)  # we need to cast the model to the device
+        # The following section only retrieves performance metrics for the model tested on the test split
+
+        path_scores = os.path.join(path_res_dir, 'scores', 'analysis',
+                                   f'{self._model}_{self._att_module}_{self.seed}')
+        if quartiles:
+            with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}',
+                                   f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                quartiles_indices = pickle.load(f)
+        else:
+            quartiles_indices = None
+
+        test_scores = scoring(model=model,
+                              data_loader=test_loader,
+                              transformer=self._transformer,
+                              quartiles_indices=quartiles_indices,
+                              individual=individual,
+                              return_att_scores=return_att_scores,
+                              att_module=self._att_module,
+                              path_scores=path_scores,
+                              get_hierarchical_energy=get_hierarchical_energy)
+
+        print(f'Test loss: {test_scores["loss"]}', flush=True)
+        store_scores(scores=test_scores,
+                     model_type=self._model,
+                     dataset=self._dataset,
+                     seed=self.seed,
+                     train_kwargs=model_args['train_kwargs'],
+                     model_kwargs=model_args['model_kwargs'],
+                     path_res_dir=path_res_dir,
+                     model_name=model_name,
+                     quartiles=quartiles,
+                     individual=individual,
+                     epoch=0)
+
+        # The following section retrieves and stores energy scores and query embeddings
+        # across train, val, test split.
+
+
+def load_trainedModel_cpu(model_path, model, model_name, device=torch.device('cpu')):
+    """
+    This function loads the state_dict() from a DataParallel model object and creates a new dict which is loadable on
+    a CPU
+    Parameters
+    ----------
+    model_path
+    model
+    model_name
+    device
+
+    Returns
+    -------
+
+    """
+    # Inference with CPU: use torch.load with map_location=torch.device('cpu') to map your storages to the CPU.
+    # original saved file with DataParallel
+    state_dict = torch.load(model_path, map_location=device)
+    # create new OrderedDict that does not contain `module.`
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:]  #remove 'module'
+        new_state_dict[name] = v
+
+    if model_name == 'CLF':
+        transformer_model = AutoModel.from_pretrained(
+            "/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
+            "attention_mechanisms/src/models/Clinical-Longformer")
+        new_state_dict['transformer_model.embeddings.position_ids'] = transformer_model.state_dict()['embeddings.position_ids']
+
+    model.load_state_dict(new_state_dict)
+    return model
 
 
 def store_scores(scores: Dict[str, Union[List[float], float]],
@@ -543,7 +703,7 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                'num_heads',
                'f1_macro_sk', 'f1_micro_sk', 'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
 
-    file_name = f'scores.xlsx'
+    file_name = f'scores_predict.xlsx'
     path_save_xlsx = os.path.join(path_res_scores, file_name)
     scores_to_excel = {f'{model_type}': [dataset,
                                          seed,
@@ -608,6 +768,12 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                     row += f'|{label}'
             row += '\n'
             file.write(row)
+
+    # Retrieve prediction probabilities
+    ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'ids_{dataset}_test.csv'))
+    with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), "rb") as f:
+        class_names = pickle.load(f)
+
     with open(os.path.join(path_res_preds, f'{model_name}_test_probs.txt'), 'w') as file:
         for hadm_id, y_prob_doc in zip(ids.HADM_ID.tolist(), scores['y_probs']):
             row = f'{hadm_id}'
@@ -615,8 +781,6 @@ def store_scores(scores: Dict[str, Union[List[float], float]],
                 row += f'|{y_prob}'
             row += '\n'
             file.write(row)
-    
-
 
     if quartiles:
         metrics = []
@@ -776,7 +940,6 @@ parser.add_argument('-am', '--attention_module',
                          '-none: No Attention'
                          '-target: Target Attention')
 parser.add_argument('-en', '--experiment_name',
-                    required=True,
                     type=str,
                     help='Set name of experiment')
 parser.add_argument('-t', '--task',
@@ -846,6 +1009,16 @@ parser.add_argument('-lr', '--learning_rate',
 parser.add_argument('-as', '--return_att_scores',
                     type=parse_boolean,
                     help='Flag indicating to return attention and energy scores.')
+parser.add_argument('-tr', '--training',
+                    default='true',
+                    type=parse_boolean)
+parser.add_argument('-pm', '--path_model',
+                    help='Absolute path to pretrained model; Flag should be used to predict on test set directly w/o training')
+parser.add_argument('-he', '--get_hierarchical_energy',
+                    default='false',
+                    type=parse_boolean,
+                    help='Retrieve energy scores generated between K and category context vectors and K and unriched'
+                         'query labels')
 
 args = parser.parse_args()
 
@@ -853,6 +1026,8 @@ args = parser.parse_args()
 def main():
     # Select seed for reproducibility
     SEED = args.seed
+    path_model = args.path_model
+
     random.seed(SEED)
     torch.manual_seed(SEED)
     np.random.seed(SEED)
@@ -861,6 +1036,10 @@ def main():
                           att_module=args.attention_module,
                           dataset=args.dataset,
                           seed=SEED)
+    # if args.training = True then train the a new model or pick up a checkpoint otherwise only predict on test set
+    exp._train = args.training
+    he = args.get_hierarchical_energy
+
 
     if (args.dataset == 'PathReports') and (args.task is None):
         raise TypeError('If dataset "PathReports" is selected, you MUST select a task.'
@@ -892,22 +1071,32 @@ def main():
                                        learning_rate=args.learning_rate,
                                        return_att_scores=args.return_att_scores)
 
-    if args.singularity:
-        path_res_dir = f'mnt/results_{args.experiment_name}/'
-    else:
-        path_res_dir = os.path.join(root, f'results_{args.experiment_name}')
-
-    if not os.path.exists(os.path.dirname(path_res_dir)):
-        try:
-            os.makedirs(os.path.dirname(path_res_dir))
-        except OSError as error:
-            print(error)
     X, Y = exp.fetch_data()
 
-    exp.fit_model(model_args=model_args,
-                  X=X,
-                  Y=Y,
-                  path_res_dir=path_res_dir)
+    if exp._train:
+        if args.singularity:
+            path_res_dir = f'mnt/results_{args.experiment_name}/'
+        else:
+            path_res_dir = os.path.join(root, f'results_{args.experiment_name}')
+
+        if not os.path.exists(os.path.dirname(path_res_dir)):
+            try:
+                os.makedirs(os.path.dirname(path_res_dir))
+            except OSError as error:
+                print(error)
+        exp.fit_model(model_args=model_args,
+                      X=X,
+                      Y=Y,
+                      path_res_dir=path_res_dir)
+    else:
+        # The model should be contained in the results directory, therefore we are recovering the results directory
+        path_res_dir = '/'.join(path_model.split('/')[:-2])
+        exp.predict(path_model=path_model,
+                    model_args=model_args,
+                    X=X,
+                    Y=Y,
+                    path_res_dir=path_res_dir,
+                    get_hierarchical_energy=he)
 
 
 if __name__ == '__main__':

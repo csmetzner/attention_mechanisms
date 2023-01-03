@@ -86,8 +86,6 @@ def train(model: nn.Module,
         # Keep track of training time
         start_time = time.time()
         for b, batch in enumerate(train_loader):
-            #start_time_batch = time.time()
-            #print(f'batch: {b}', flush=True)
             ## if-statement for debugging the code
             #if b == 1:
             #    break
@@ -148,34 +146,33 @@ def train(model: nn.Module,
                         elif att_module == 'pretrained':
                             Q.append(
                                 model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_random':
                             Q.append(
                                 model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_pretrained':
                             Q.append(
                                 model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                             Q.append(
                                 model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:37])
+                            Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:14])
                     else:
                         if att_module == 'random':
                             Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                         elif att_module == 'pretrained':
                             Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_random':
                             Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         elif att_module == 'hierarchical_pretrained':
                             Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                            Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                             Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                            Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:37])
+                            Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:14])
                     queries_epochs.append(Q)
-             
 
             # Compute loss
             loss = 0
@@ -185,12 +182,12 @@ def train(model: nn.Module,
             loss.backward()
             optimizer.step()
             l_cpu = loss.cpu().detach().numpy()
-            #print(time.time() - start_time_batch, flush=True)
+
         scheduler.step()
         print(f'Training loss: {l_cpu} ({time.time() - start_time:.2f} sec)', flush=True)
 
         # save checkpoint for current model
-        if (epoch + 1) % 2 == 0:
+        if epoch % 2 == 0:
             save_name_check = f'{save_name}_checkpoint.pt'
             torch.save({'epoch': epoch,
                         'model_state_dict': model.state_dict(),
@@ -207,29 +204,29 @@ def train(model: nn.Module,
                         Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                     elif att_module == 'pretrained':
                         Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_random':
                         Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_pretrained':
                         Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:37])
+                        Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:14])
                 else:
                     if att_module == 'random':
                         Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
                     elif att_module == 'pretrained':
                         Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_random':
                         Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                     elif att_module == 'hierarchical_pretrained':
                         Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                        Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                         Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                        Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:37])
+                        Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:14])
                 queries_epochs.append(Q)
 
         ### Validate model ###
@@ -274,29 +271,29 @@ def train(model: nn.Module,
                 Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
             elif att_module == 'pretrained':
                 Q.append(model.module.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
-                Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_random':
                 Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_pretrained':
                 Q.append(model.module.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
-                Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                 Q.append(model.module.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:37])
+                Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:14])
         else:
             if att_module == 'random':
                 Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
             elif att_module == 'pretrained':
                 Q.append(model.attention_layer.attention_layer.Q.weight.detach().clone().cpu().numpy())
-                Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_random':
                 Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
             elif att_module == 'hierarchical_pretrained':
                 Q.append(model.attention_layer.attention_layer.Q2.weight.detach().clone().cpu().numpy())
-                Q.append(Q_dh.detach().clone().cpu().numpy()[:8907])
+                Q.append(Q_dh.detach().clone().cpu().numpy()[:50])
                 Q.append(model.attention_layer.attention_layer.Q1.weight.detach().clone().cpu().numpy())
-                Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:37])
+                Q.append(Q_cat_dh.detach().clone().cpu().numpy()[:14])
         queries_epochs.append(Q)
     epoch = epoch + 1
     return epoch, queries_epochs
@@ -309,7 +306,8 @@ def scoring(model,
             quartiles_indices: List[int] = None,
             individual: bool = False,
             return_att_scores: bool = False,
-            path_scores: str = None) -> Dict[str, Union[float, np.array]]:
+            path_scores: str = None,
+            get_hierarchical_energy: bool = False) -> Dict[str, Union[float, np.array]]:
 
     """
     Parameters
@@ -334,7 +332,6 @@ def scoring(model,
         Dictionary containing the computed performance metrics (scores) and ground-truth values, prediction probabilites
         prediction, and validating/testing loss.
     """
-
     # Multilabel requires using the sigmoid function to compute pseudo-probabilities ranging [0, 1] for each label
     # Use BCEWithLogitsLoss() for increased numerical stability
     loss_fct = torch.nn.BCEWithLogitsLoss()
@@ -356,6 +353,7 @@ def scoring(model,
     with torch.no_grad():
         # loop through dataset
         for b, batch in enumerate(data_loader):
+            print(b)
             # if statement for debugging the code
             #if b == 1:
             #    break
@@ -375,16 +373,44 @@ def scoring(model,
                     elif att_module == 'hierarchical_random':
                         logits, E, Q_dh = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
-                                         return_att_scores=return_att_scores)
+                                         return_att_scores=return_att_scores,
+                                                get_hierarchical_energy=get_hierarchical_energy)
                     elif att_module == 'hierarchical_pretrained':
                         logits, E, Q_cat_dh, Q_dh = model(input_ids=input_ids,
                                          attention_mask=attention_mask,
-                                         return_att_scores=return_att_scores)
+                                         return_att_scores=return_att_scores,
+                                                          get_hierarchical_energy=get_hierarchical_energy)
                     # Store attention and energy scores in batches
-                    path_en_b = path_en + f'_batch{b}'  # add batch identifier
+                    if get_hierarchical_energy:
+                        path_en_b = path_en + f'_C2_batch{b}'  # add batch identifier
+                        with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                            df = f.create_dataset("scores", data=C.detach().cpu().numpy(), dtype='e', compression="gzip")
 
-                    with h5py.File(path_en_b + '.hdf5', 'w') as f:
-                        df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
+                        #path_en_b = path_en + f'_C1_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #   df = f.create_dataset("scores", data=E[4].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        #path_en_b = path_en + f'_Q2init_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[5].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        #path_en_b = path_en + f'_EQ2K_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[1].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        #path_en_b = path_en + f'_EC1K_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[2].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        # Store attention and energy scores in batches
+                        #path_en_b = path_en + f'_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[0].detach().cpu().numpy(), dtype='e', compression="gzip")
+                    else:
+                        # Store attention and energy scores in batches
+                        path_en_b = path_en + f'_batch{b}'  # add batch identifier
+                        with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                            df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
 
                 else:
                     logits = model(input_ids=input_ids,
@@ -401,16 +427,40 @@ def scoring(model,
                     elif att_module == 'pretrained':
                         logits, E, Q_dh = model(X, return_att_scores)
                     elif att_module == 'hierarchical_random':
-                        logits, E, Q_dh = model(X, return_att_scores)
+                        logits, E, Q_dh = model(X, return_att_scores, get_hierarchical_energy)
                     elif att_module == 'hierarchical_pretrained':
-                        logits, E, Q_cat_dh, Q_dh = model(X, return_att_scores)
+                        logits, E, Q_cat_dh, Q_dh = model(X, return_att_scores, get_hierarchical_energy)
 
-                    # Store attention and energy scores in batches
-                    path_en_b = path_en + f'_batch{b}'  # add batch identifier
+                    if get_hierarchical_energy:
+                        path_en_b = path_en + f'_C2_batch{b}'  # add batch identifier
+                        with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                            df = f.create_dataset("scores", data=C.detach().cpu().numpy(), dtype='e', compression="gzip")
 
-                    with h5py.File(path_en_b + '.hdf5', 'w') as f:
-                        df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
+                        #path_en_b = path_en + f'_C1_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #   df = f.create_dataset("scores", data=E[1].detach().cpu().numpy(), dtype='e', compression="gzip")
 
+                        #path_en_b = path_en + f'_Q2init_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[2].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        #path_en_b = path_en + f'_EQ2K_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[1].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        #path_en_b = path_en + f'_EC1K_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[2].detach().cpu().numpy(), dtype='e', compression="gzip")
+
+                        # Store attention and energy scores in batches
+                        #path_en_b = path_en + f'_batch{b}'  # add batch identifier
+                        #with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                        #    df = f.create_dataset("scores", data=E[0].detach().cpu().numpy(), dtype='e', compression="gzip")
+                    else:
+                        # Store attention and energy scores in batches
+                        path_en_b = path_en + f'_batch{b}'  # add batch identifier
+                        with h5py.File(path_en_b + '.hdf5', 'w') as f:
+                            df = f.create_dataset("scores", data=E.detach().cpu().numpy(), dtype='e', compression="gzip")
                 else:
                     logits = model(X)
             loss = 0

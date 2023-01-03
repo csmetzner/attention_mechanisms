@@ -137,7 +137,9 @@ class CNN(nn.Module):
         nn.init.xavier_uniform_(self.output_layer.weight)
         self.output_layer.bias.data.fill_(0.01)
 
-    def forward(self, docs: torch.Tensor, return_att_scores: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+    def forward(self, docs: torch.Tensor,
+                return_att_scores: bool = False,
+                get_hierarchical_energy: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of CNN model
 
@@ -200,7 +202,7 @@ class CNN(nn.Module):
 
             elif self._att_module == 'target':
                 # target attention uses a one query vector to learn a single latent document representation
-                C = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
+                C, E = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
 
@@ -211,16 +213,19 @@ class CNN(nn.Module):
                 C, E, Q_dh = self.attention_layer(H=H)
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
             elif self._att_module == 'hierarchical_random':
-                C, E, Q = self.attention_layer(H=H)
+                C, E, Q = self.attention_layer(H=H, get_hierarchical_energy=get_hierarchical_energy)
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
             elif self._att_module == 'hierarchical_pretrained':
-                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H)
+                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H, get_hierarchical_energy=get_hierarchical_energy)
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
-            E_new = torch.zeros((E.size()[0], E.size()[1], 3000))
-            E_new[:, :, :E.size()[2]] = E
-            E_new = E_new.to(device)
+            if get_hierarchical_energy:
+                E_new = E
+            else:
+                E_new = torch.zeros((E[0].size()[0], E[0].size()[1], 3000))
+                E_new[:, :, :E[0].size()[2]] = E[0]
+                E_new = E_new.to(device)
             if self._att_module == 'random':
                 return logits, E_new
             elif self._att_module == 'pretrained':
@@ -229,4 +234,7 @@ class CNN(nn.Module):
                 return logits, E_new, Q
             elif self._att_module == 'hierarchical_pretrained':
                 return logits, E_new, Q_cat_dh, Q_dh
-        return logits
+            elif self._att_module == 'target':
+                return logits, E_new
+
+        return logits, C
