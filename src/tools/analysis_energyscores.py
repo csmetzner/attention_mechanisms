@@ -7,26 +7,29 @@ the testing of the model.
     @last modified: 12/09/2022
 """
 
-
 # built-in libraries
 import os
 import sys
-from typing import List, Dict, Union
+from typing import List, Dict, Tuple
 import pickle
 import h5py
 import time
+import re
 
 # installed libraries
 import numpy as np
-np.random.seed(42)
+from scipy import stats
 import pandas as pd
-pd.set_option('display.max_rows', None)
 
+pd.set_option('display.max_rows', None)
+import torch
 import matplotlib.pyplot as plt
 
 from transformers import AutoTokenizer
 
-CLF_tokenizer = AutoTokenizer.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/attention_mechanisms/src/models/Clinical-Longformer", model_max_length=4096)
+CLF_tokenizer = AutoTokenizer.from_pretrained(
+    "/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/attention_mechanisms/src/models/Clinical-Longformer",
+    model_max_length=4096)
 
 # Set up root folder
 try:
@@ -36,41 +39,11 @@ except NameError:
 sys.path.append(root)
 print('Project root: {}'.format(root))
 
-# Setup paths here
+# Path to storage location of results
+path_results = os.path.join('/Volumes', 'MetznerSSD', 'Study_Attention')
 
 # Path to storage location of processed MIMIC-III-50 data
-path_mimic50 = os.path.join(root, 'data', 'processed', 'data_Mimic50')
-path_hadm50 = os.path.join(root, 'data', 'processed', 'hadm_ids')
-
-# Path to storage location of results
-path_results = os.path.join('/Volumes', 'MetznerSSD', 'paper_attention')
-
-# Vocabulary based on training documents - torchtext vocab object - https://pytorch.org/text/stable/vocab.html
-with open(os.path.join(path_mimic50, 'vocab_Mimic50.pkl'), 'rb') as f:
-    mimic50_vocab = pickle.load(f)
-
-# Load medical code labels
-with open(os.path.join(path_mimic50, 'l_codes_Mimic50.pkl'), 'rb') as f:
-    mimic50_labels = pickle.load(f)
-
-# Load category labels
-with open(os.path.join(path_mimic50, 'l_cats_Mimic50.pkl'), 'rb') as f:
-    mimic50_cats = pickle.load(f)
-
-with open(os.path.join(path_mimic50, 'l_codes_Mimic50_features.pkl'), 'rb') as f:
-    mimic50_features = pickle.load(f)
-
-# Load category descriptions
-mimic50_desc = pd.read_pickle(os.path.join(path_mimic50, 'Mimic50_descriptions.pkl'))
-
-mimic50_desc_dict = dict(zip(mimic50_desc.label, mimic50_desc.description))
-
-# Needed to create lists that contain the column headers in excel sheet containing the overall, quartile,
-# and individual results
-cols_ind = [f'f1_micro_{label}' for label in mimic50_labels]
-cols_q = ["f1_macro_Q0", "f1_micro_Q0", "f1_macro_Q1", "f1_micro_Q1", "f1_macro_Q2", "f1_micro_Q2", "f1_macro_Q3",
-          "f1_micro_Q3"]
-cols_overall = ['f1_macro_sk', 'f1_micro_sk', 'auc_micro', 'auc_macro', 'prec@5', 'prec@8', 'prec@15']
+path_proc = os.path.join(root, 'data', 'processed')
 
 
 def get_train_token_freqs(model, path_dataset: str):
@@ -96,7 +69,7 @@ def get_train_token_freqs(model, path_dataset: str):
                 train_token_freqs = pickle.load(f)
         else:
             # Load training documents to extract word frequency
-            df_train = pd.read_pickle(os.path.join(path_mimic50, f'X_Mimic50_train_text.pkl'))
+            df_train = pd.read_pickle(os.path.join(path_dataset, f'X_Mimic50_train_text.pkl'))
 
             train_token_freqs = Counter(element for doc in list(df_train['input_ids'].tolist()) for element in doc)
             with open(file_path, 'wb') as f:
@@ -108,7 +81,7 @@ def get_train_token_freqs(model, path_dataset: str):
                 train_token_freqs = pickle.load(f)
         else:
             # Load training documents to extract word frequency
-            df_train = pd.read_pickle(os.path.join(path_mimic50, f'X_Mimic50_train.pkl'))
+            df_train = pd.read_pickle(os.path.join(path_dataset, f'X_Mimic50_train.pkl'))
             train_token_freqs = Counter(element for doc in list(df_train) for element in doc)
 
             with open(file_path, 'wb') as f:
@@ -143,13 +116,11 @@ def truncate_seq(seq: List[int], max_doc_len: int = 3000):
 
 def load_scores(model: str,
                 att: str,
-                path_dataset: str,
+                dataset: str,
                 path_results: str,
                 split: str = 'test',
                 seeds: List[str] = ['13', '25', '42', '87', '111'],
-                max_doc_len: int = 3_000,
-                hier_cat_context_K: bool = False,
-                hier_query_label_K: bool = False):
+                max_doc_len: int = 3_000):
     """
     This function retrieves the energy scores per batch of document, contained in .hdf5 files, and matches them
     with the correct token across multiple seeds to take an average energy score value. Finally, a dictionary for each
@@ -169,41 +140,48 @@ def load_scores(model: str,
         Data split
     seeds : List[str]; default=['13', '25', '42', '87', '111']
         Seeds used during the experiments
-    hier_cat_context_K : bool; default=False
-        Flag indicating to retrieve energy scores between the category context vectors and the input sequence K for the
-         hierarchical random and hierarchical pretrained attention mechanisms
-    hier_cat_context_K : bool; default=False
-        Flag indicating to retrieve energy scores between the initial query label vectors and the input sequence K for
-         the hierarchical random and hierarchical pretrained attention mechanisms
 
     """
-    # Create directory to store energy score dictionaries if it does not exist
-    path_res_energy = os.path.join(path_results, f'results_analysis_{model}', 'scores', 'energy_processed/')
-    if not os.path.exists(os.path.dirname(path_res_energy)):
+    path_res_scores = os.path.join(path_results, f'{dataset}', f'{model}', 'scores', 'energy_processed/')
+    if not os.path.exists(os.path.dirname(path_res_scores)):
         try:
-            print(f'Creating directory at: {path_res_energy}')
-            os.makedirs(os.path.dirname(path_res_energy))
+            print(f'Creating directory at: {path_res_scores}')
+            os.makedirs(os.path.dirname(path_res_scores))
         except OSError as error:
             print(error)
-    print(f'Currently retrieving and consolidating energy scores for {model} and {att} label attention.')
 
+    print(f'Retrieving and consolidating energy scores for {model} and {att} label attention.')
+
+    # Retrieve different data for Clinical Longformer (CLF); byte-pair encoded vocabulary
     if model == 'CLF':
-        with open(os.path.join(path_dataset, f'X_Mimic50_test_text.pkl'), 'rb') as f:
+        with open(os.path.join(path_proc, f'data_{dataset}', f'X_{dataset}_test_text.pkl'), 'rb') as f:
             docs_tensor = pickle.load(f)['input_ids'].tolist()
         d = {'truncated_seq': docs_tensor}
         docs = pd.DataFrame(data=d)
         max_doc_len = 4096
         bs = 4
     else:
-        docs = pd.DataFrame(pd.read_pickle(os.path.join(path_dataset, f'X_Mimic50_test.pkl')))
+        docs = pd.DataFrame(pd.read_pickle(os.path.join(path_proc, f'data_{dataset}', f'X_{dataset}_test.pkl')))
         docs['truncated_seq'] = docs.apply(lambda x: truncate_seq(x.token2id, max_doc_len=max_doc_len), axis=1)
-
         bs = 16
 
-    if hier_cat_context_K:
-        labels = mimic50_cats
-    else:
-        labels = mimic50_labels
+    # Retrieve labels for dataset
+    with open(os.path.join(path_proc, f'data_{dataset}', f'l_codes_{dataset}.pkl'), 'rb') as f:
+        labels = pickle.load(f)
+
+    if dataset == 'MimicFull':
+        with open(os.path.join(path_results, 'performance_results', 'mimic_full', 'labels_kept.pkl'), 'rb') as f:
+            labels = pickle.load(f)
+
+    # Add code to subset label set for MimicFull to only retrieve energy scores for the relevant labels for phrase analysis
+    ####
+    # CODE MISSING HERE
+
+    ####
+    with open(os.path.join(path_results, 'performance_results', 'mimic_full', 'labels_kept_index.pkl'), 'rb') as f:
+        mimicFull_labels_kept_idx = pickle.load(f)
+
+
 
     for seed in seeds:
         print(f'Current seed: {seed}')
@@ -222,20 +200,18 @@ def load_scores(model: str,
                 print(f'Current batch: {b + 1}')
 
             # Load hdf5 file containing energy score matrix for current batch
-            # Select type of energy scores that should be retrieved and processed
-            if hier_cat_context_K:  # Hierarchical Attention: Category context matrix C1 times K
-                file_name = f'{model}_{att}_{seed}_en_scores_EC1K_batch{b}.hdf5'
-            elif hier_query_label_K:  # Hierarchical Attention: Unenriched query label matrix Q2 times K
-                file_name = f'{model}_{att}_{seed}_en_scores_EQ2K_batch{b}.hdf5'
-            else:  # All attention mechanisms
-                file_name = f'{model}_{att}_{seed}_{split}_en_scores_batch{b}.hdf5'
-            file = os.path.join(path_results, f'results_analysis_{model}', 'scores', 'analysis', file_name)
+            file_name = f'{model}_{att}_{seed}_{split}_en_scores_batch{b}.hdf5'
+            if dataset == 'MimicFull':
+                file = os.path.join(path_results, f'{dataset}', f'{model}', file_name)
+            else:
+                file = os.path.join(path_results, f'{dataset}', f'{model}', 'scores', 'analysis', file_name)
             if os.path.isfile(file):
                 with h5py.File(file, 'r') as f:
                     scores = np.array(f['scores'][()])  # shape [batch size, n_labels, n_tokens]
+                    scores = scores[: , mimicFull_labels_kept_idx, :]
 
                 # retrieve sequences for current batch
-                docs_batch = docs.iloc[bs * b : (b + 1) * bs]  # retrieve sequences from current batch
+                docs_batch = docs.iloc[bs * b: (b + 1) * bs]  # retrieve sequences from current batch
 
                 # This loop aligns the energy scores to their tokenid and finally appends the score to a token-specific
                 # array. This array is then used to compute descriptive statistics for a token. Appending the individual
@@ -271,34 +247,24 @@ def load_scores(model: str,
                 max_val = np.max(arr)
                 n = len(arr)
                 d_cons[label][token] = {'sum': sum_val,
-                                                'mean': mean,
-                                                'median': median,
-                                                'std': std,
-                                                'min': min_val,
-                                                'max': max_val,
-                                                'n': n}
+                                        'mean': mean,
+                                        'median': median,
+                                        'std': std,
+                                        'min': min_val,
+                                        'max': max_val,
+                                        'n': n}
 
-        if hier_cat_context_K:
-            with open(os.path.join(path_res_energy,
-                                   f'{model}_{att}_{split}_{seed}_EC1K_energyscores.pkl'), 'wb') as f:
-                pickle.dump(d_cons, f)
-        elif hier_query_label_K:
-            with open(os.path.join(path_res_energy,
-                                   f'{model}_{att}_{split}_{seed}_EQ2K_energyscores.pkl'), 'wb') as f:
-                pickle.dump(d_cons, f)
-        else:
-            with open(os.path.join(path_res_energy,
-                                   f'{model}_{att}_{split}_{seed}_energyscores.pkl'), 'wb') as f:
-                pickle.dump(d_cons, f)
+        with open(os.path.join(path_res_scores,
+                               f'{model}_{att}_{split}_{seed}_energyscores.pkl'), 'wb') as f:
+            pickle.dump(d_cons, f)
 
 
 def consolidate_seed_dicts(model: str,
                            att: str,
+                           dataset: str,
                            path_results: str,
                            split: str = 'test',
-                           seeds: List[str] = ['13', '25', '42', '87', '111'],
-                           hier_cat_context_K: bool = False,
-                           hier_query_label_K: bool = False):
+                           seeds: List[str] = ['13', '25', '42', '87', '111']):
     """
     This function retrieves the generated seed-specific dictionaries and consolidates the contained token-speicific
     scores w.r.t its label into one general dictionary.
@@ -315,36 +281,21 @@ def consolidate_seed_dicts(model: str,
         Data split
     seeds : List[str]; default=['13', '25', '42', '87', '111']
         Seeds used during the experiments
-    hier_cat_context_K : bool; default=False
-        Flag indicating to retrieve energy scores between the category context vectors and the input sequence K for the
-         hierarchical random and hierarchical pretrained attention mechanisms
-    hier_cat_context_K : bool; default=False
-        Flag indicating to retrieve energy scores between the initial query label vectors and the input sequence K for
-         the hierarchical random and hierarchical pretrained attention mechanisms
 
     """
 
-    path_res_energy = os.path.join(path_results, f'results_analysis_{model}', 'scores', 'energy_processed')
+    path_res_scores = os.path.join(path_results, f'{dataset}', f'{model}', 'scores', 'energy_processed')
 
-    if hier_cat_context_K:
-        labels = mimic50_cats
-    else:
-        labels = mimic50_labels
+    # Retrieve labels for dataset
+    with open(os.path.join(path_proc, f'data_{dataset}', f'l_codes_{dataset}.pkl'), 'rb') as f:
+        labels = pickle.load(f)
+
 
     dicts = []
     for seed in seeds:
-        if hier_cat_context_K:
-            with open(os.path.join(path_res_energy,
-                                   f'{model}_{att}_{split}_{seed}_EC1K_energyscores.pkl'), 'rb') as f:
-                d = pickle.load(f)
-        elif hier_query_label_K:
-            with open(os.path.join(path_res_energy,
-                                   f'{model}_{att}_{split}_{seed}_EQ2K_energyscores.pkl'), 'rb') as f:
-                d = pickle.load(f)
-        else:
-            with open(os.path.join(path_res_energy,
-                                   f'{model}_{att}_{split}_{seed}_energyscores.pkl'), 'rb') as f:
-                d = pickle.load(f)
+        with open(os.path.join(path_res_scores,
+                               f'{model}_{att}_{split}_{seed}_energyscores.pkl'), 'rb') as f:
+            d = pickle.load(f)
         dicts.append(d)
 
     d_total = {}
@@ -367,27 +318,524 @@ def consolidate_seed_dicts(model: str,
                 min_arr.append(token_dict['min'])
                 max_arr.append(token_dict['max'])
 
-
             d_total[label][token] = {'sum': np.mean(sum_arr),
-                             'mean': np.mean(mean_arr),
-                             'median': np.mean(median_arr),
-                             'std': np.mean(std_arr),
-                             'min': np.mean(min_arr),
-                             'max': np.mean(max_arr),
-                             'n': d_seed[label][token]['n']}
+                                     'mean': np.mean(mean_arr),
+                                     'median': np.mean(median_arr),
+                                     'std': np.mean(std_arr),
+                                     'min': np.mean(min_arr),
+                                     'max': np.mean(max_arr),
+                                     'n': d_seed[label][token]['n']}
 
-    if hier_cat_context_K:
-        with open(os.path.join(path_res_energy,
-                               f'{model}_{att}_{split}_EC1K_energyscores.pkl'), 'wb') as f:
-            pickle.dump(d_total, f)
-    elif hier_query_label_K:
-        with open(os.path.join(path_res_energy,
-                               f'{model}_{att}_{split}_EQ2K_energyscores.pkl'), 'wb') as f:
-            pickle.dump(d_total, f)
-    else:
-        with open(os.path.join(path_res_energy,
+        with open(os.path.join(path_res_scores,
                                f'{model}_{att}_{split}_energyscores.pkl'), 'wb') as f:
             pickle.dump(d_total, f)
+
+
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=1)  # only difference
+
+
+def load_energy_for_doc_label(model: str, att: str, dataset: str, k=10):
+    """
+    Function that retrieves the energy scores for one specific
+    Parameters
+    ----------
+    model : str
+        Type of model, e.g., CNN, BiGRU, BiLSTM, CLF
+    att : str
+        Type of attention mechanism, e.g., random, pretrained, hierarchical_random, hierarchical_pretrained
+    Returns
+    -------
+p
+    """
+    # Load labels for MIMIC-III-50
+    with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), 'rb') as f:
+        mimic50_labels = pickle.load(f)
+
+    # Load vocabulary for MIMIC-III-50
+    with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'vocab_{dataset}.pkl'),
+              'rb') as f:
+        mimic50_vocab = pickle.load(f)
+
+    # Load dictionary with energy scores consolidated on label-level
+    with open(os.path.join(path_results, 'Mimic50', f'{model}', 'scores', 'energy_processed',
+                           f'{model}_{att}_test_energyscores.pkl'), 'rb') as f:
+        dict_scores = pickle.load(f)
+
+    # Load HADM-IDs associated with documents in test corpus
+    doc_ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}',
+                                       f'ids_{dataset}_test.csv')).HADM_ID.tolist()
+
+    if model == 'CLF':
+        with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test_text.pkl'),
+                  'rb') as f:
+            docs_tensor = pickle.load(f)['input_ids'].tolist()
+        d = {'hadm_id': doc_ids, 'token2id': docs_tensor}
+        test_docs = pd.DataFrame(data=d)
+        max_length = 4096
+        phrase_sizes = [4, 6, 8]
+
+    else:  # CNN and BiGRU / BiLSTM data
+        test_docs = pd.DataFrame(
+            pd.read_pickle(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test.pkl')))
+        test_docs['hadm_id'] = doc_ids
+        max_length = 3000
+        phrase_sizes = [3, 4, 5]
+    start = time.time()
+    k = 15
+    for l, label in enumerate(mimic50_labels):
+        print(f'Label: {label}')
+        start = time.time()
+        scores_label = dict_scores[label]
+        file_name_results = f'{dataset}_{model}_{att}_top_k_phrases_{label}.csv'
+        file_path =  os.path.join(path_results, f'{dataset}', 'analysis_phrase_extraction', file_name_results)
+
+        for doc_id in doc_ids:
+            start2 = time.time()
+            # Retrieve integer-index document
+            doc = test_docs[test_docs['hadm_id'] == doc_id]['token2id'].item()
+
+            # Remove <pad> token and/or clip to max length
+            if model == 'CLF':
+                if len(doc) > max_length:
+                    doc = doc[:max_length]
+                else:
+                    phrase_tokens = CLF_tokenizer.convert_ids_to_tokens(doc)
+                    doc_no_pad = [token for token in phrase_tokens if token != '<pad>']
+                    len_doc = len(doc_no_pad)
+                    doc = doc[:len_doc]
+            else:
+                if len(doc) > max_length:
+                    doc = doc[:max_length]
+
+            doc_len = len(doc)
+
+            # Map aggregated energy scores to each integer-index token
+            doc_energy = [scores_label[idx]['mean'] for idx in doc]
+
+            means = []
+            means_energy = []
+            means_idx = []
+            for ps in phrase_sizes:
+                means_ps = []
+                for idx in range(doc_len):
+                    phrase_energy = doc_energy[idx:idx + ps]
+                    means_ps.append(np.mean(phrase_energy))
+                # Retrieve idx for the three phrases with the highest average score
+                top_k_idx = list(np.argsort(np.array(means_ps))[::-1][:k])
+                for idx in top_k_idx:
+                    means.append(means_ps[idx])
+                    means_energy.append(doc_energy[idx:idx + ps])
+                    means_idx.append(idx)
+
+            # Get top 3 means across the phrase sizes for each label
+            top_k_idx = list(np.argsort(np.array(means))[::-1][:k])
+
+            # Add means to array that contains the means across the 3 phrase sizes
+            for idx in top_k_idx:
+                means.append(means[idx])
+                means_energy.append(means_energy[idx])
+                means_idx.append(means_idx[idx])
+
+            # Remove duplicate phrases
+            means_idx_no_duplicates = []
+            means_no_duplicates = []
+            means_energy_no_duplicates = []
+            for i, idx in enumerate(means_idx):
+                if idx not in means_idx_no_duplicates:
+                    means_idx_no_duplicates.append(idx)
+                    means_no_duplicates.append(means[i])
+                    means_energy_no_duplicates.append(means_energy[i])
+
+            # Loop to remove direct neighbors
+            #means_idx_old = means_idx_no_duplicates.copy()
+            #for i, idi in enumerate(means_idx_no_duplicates):
+            #    ub = idi + 2
+            #    lb = idi - 2
+            #    for j, idj in enumerate(means_idx_no_duplicates[:]):
+            #        if i != j:
+            #            if ub >= idj >= lb:
+            #                means_idx_no_duplicates.remove(idj)  # this requires the duplicate removal process
+
+            #means_no_duplicates = [means_no_duplicates[means_idx_old.index(idx)] for idx in means_idx_no_duplicates]
+            #means_energy_no_duplicates = [means_energy_no_duplicates[means_idx_old.index(idx)] for idx in
+            #                              means_idx_no_duplicates]
+
+            # Get top 3 means across the phrase sizes for each label
+            k = 5
+            top_k_ids = list(np.argsort(np.array(means_no_duplicates))[::-1][:k])
+            means = []
+            means_energy = []
+            means_idx = []
+            for idx in top_k_ids:
+                means.append(means_no_duplicates[idx])
+                means_energy.append(means_energy_no_duplicates[idx])
+                means_idx.append(means_idx_no_duplicates[idx])
+
+            while len(means) < 5:
+                means.append(0)
+                means_energy.append([0])
+                means_idx.append(0)
+
+            top_k_phrases = []
+            for mean, mean_energy, mean_idx in zip(means, means_energy, means_idx):
+                top_k_phrases.append((mean, mean_energy, mean_idx))
+
+            # Init helper dictionary that is casted to pandas csv
+            d_helper = {'model': [model] * k, 'att': [att] * k, 'doc_id': [doc_id] * k, 'rank': np.arange(1, k+1),
+                        'phrase': [], 'phrase_tokens': [], 'energy_mean': [], 'energy_token': [], 'phrase_pos_idx': []}
+            for top_phrase in top_k_phrases:
+                mean_score = top_phrase[0]
+                phrase_scores = top_phrase[1]
+                start_pos = top_phrase[2]
+
+                phrase_idx = doc[start_pos: start_pos + len(phrase_scores)]
+                # Decode sequence
+                if model == 'CLF':
+                    #  phrase_tokens = CLF_tokenizer.convert_ids_to_tokens(phrase_idx)
+                    phrase_tokens = CLF_tokenizer.decode(phrase_idx)
+                else:
+                    phrase_tokens = mimic50_vocab.lookup_tokens(phrase_idx)
+
+                d_helper['phrase'].append(" ".join(phrase_tokens))
+                d_helper['phrase_tokens'].append(phrase_tokens)
+                d_helper['energy_mean'].append(mean_score)
+                d_helper['energy_token'].append(phrase_scores)
+                d_helper['phrase_pos_idx'].append(start_pos)
+
+            df = pd.DataFrame(d_helper)
+            if os.path.isfile(file_path):
+                df.to_csv(file_path, mode='a', header=False)
+            else:
+                df.to_csv(file_path, header=d_helper.keys())
+
+        df_label = pd.read_csv(file_path).reset_index(drop=True)
+        df_label.to_csv(file_path)
+
+        print(f'Execution time: {time.time() - start}')
+
+
+def get_phrase_frequency(model, att, dataset):
+    # Load labels for MIMIC-III-50
+    with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), 'rb') as f:
+        mimic50_labels = pickle.load(f)
+
+    # Load category descriptions
+    code_descs = pd.read_pickle(os.path.join(root, 'data', 'processed', 'cleaned_descriptions.pkl')).reset_index(
+        drop=True)
+    code_descs = code_descs.drop(['desc_clean', 'desc_len'], axis=1)
+    df_mimic50_desc = code_descs[code_descs['ICD9_CODE'].isin(mimic50_labels)].reset_index(drop=True)
+    df_mimic50_desc.set_index('ICD9_CODE', inplace=True)
+
+    mimic50_desc = df_mimic50_desc.to_dict()['LONG_TITLE']
+
+    d = {'model': [], 'att': [], 'ICD9_code': [], 'ICD9_code_desc': [], 'rank': [], 'phrase': [], 'count': []}
+
+    for l, label in enumerate(mimic50_labels):
+        print(f'Label: {label}')
+        file_name_results = f'{dataset}_{model}_{att}_top_k_phrases_{label}.csv'
+        file_path = os.path.join(path_results, f'{dataset}', 'analysis_phrase_extraction', file_name_results)
+        df = pd.read_csv(file_path).reset_index(drop=True)
+        df = df.drop(['Unnamed: 0'], axis=1)
+
+        phrase_counts = df.phrase.value_counts()[:5]
+
+        for count, phrase in enumerate(phrase_counts.index.tolist()):
+            if model == 'CLF':
+                # remove spaces after each character
+                phrase = ' '.join([re.sub(' ', '', token) for token in phrase.split('  ')]).strip()
+            d['ICD9_code'].append(label)
+            d['ICD9_code_desc'].append(mimic50_desc[label])
+            d['model'].append(model)
+            d['att'].append(att)
+            d['rank'].append(count+1)
+            d['phrase'].append(phrase)
+            d['count'].append(phrase_counts[count])
+
+    df = pd.DataFrame(d)
+
+    df.to_csv(os.path.join(path_results, f'{dataset}', f'{dataset}_{model}_{att}_top_k_phrases.csv'),
+              header=True, index=True)
+
+
+def get_phrases_for_doc(top_k_phrases, model: str, att: str, doc_hadm_ids: int, dataset: str, seed: int = 42):
+    test_ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}',
+                                        f'ids_{dataset}_test.csv')).HADM_ID.tolist()
+    if model == 'CLF':
+        with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test_text.pkl'), 'rb') as f:
+            docs_tensor = pickle.load(f)['input_ids'].tolist()
+        d = {'hadm_id': test_ids, 'token2id': docs_tensor}
+        test_docs = pd.DataFrame(data=d)
+        test_docs = test_docs[test_docs['hadm_id'].isin(doc_hadm_ids)]
+        #doc_length = 4096
+        #phrase_sizes = [6, 8, 10]
+
+    else:  # CNN and BiGRU / BiLSTM data
+        test_docs = pd.DataFrame(
+            pd.read_pickle(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test.pkl')))
+        test_docs['hadm_id'] = test_ids
+        test_docs = test_docs[test_docs['hadm_id'].isin(doc_hadm_ids)]
+        #doc_length = 3000
+        #test_docs['token2id_max'] = test_docs.apply(lambda x: x.token2id[:doc_length], axis=1)
+        #phrase_sizes = [3, 4, 5]
+
+    seq = test_docs[test_docs['hadm_id'] == doc_hadm_ids[0]]['token2id'].item()
+
+    phrases = []
+    for top_phrase in top_k_phrases:
+        mean_score = top_phrase[0]
+        phrase_scores = top_phrase[1]
+        len_seq = phrase_scores.shape[0]
+        start_pos = top_phrase[2]
+
+        phrase_idx = seq[start_pos: start_pos + len_seq]
+        # Decode sequence
+        if model == 'CLF':
+            phrase_tokens = CLF_tokenizer.convert_ids_to_tokens(phrase_idx)
+        else:
+            with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'vocab_{dataset}.pkl'), 'rb') as f:
+                vocab = pickle.load(f)
+            phrase_tokens = vocab.lookup_tokens(phrase_idx)
+        phrases.append((phrase_tokens, mean_score, phrase_scores, start_pos))
+
+    print(f'{model}/{att}: {phrases}')
+    return phrases
+
+
+def load_energy_for_doc(model: str, att: str, doc_hadm_ids: int, dataset: str, seed: int = 25):
+    """
+    Function that retrieves the energy scores for one specific
+    Parameters
+    ----------
+    model : str
+        Type of model, e.g., CNN, BiGRU, BiLSTM, CLF
+    att : str
+        Type of attention mechanism, e.g., random, pretrained, hierarchical_random, hierarchical_pretrained
+    Returns
+    -------
+
+    """
+    if dataset == 'MimicFull':
+        with open(os.path.join(path_results, 'performance_results', 'mimic_full', 'labels_kept_index.pkl'), 'rb') as f:
+            labels = pickle.load(f)
+    elif dataset == 'Mimic50':
+        with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'l_codes_{dataset}.pkl'), 'rb') as f:
+            labels = pickle.load(f)
+
+
+    # Load testids for dataset
+    test_ids = pd.read_csv(
+        os.path.join(root, 'data', 'processed', f'data_{dataset}', f'ids_{dataset}_test.csv')).HADM_ID.tolist()
+
+    # We want to match the phrases highlighted by a medical resident with the phrases extracted from our models
+    # Given that the energy score file size is so large we are not processing the energy scores to get an
+    # aggregated value for each token --> we only care about the energy scores for a given document
+    # To do that, we need to extract the specific location of each document in the ordered test dataset and
+    # therefore, locate them in each of the batches
+
+    # First: Retrieve absolute position of each document in doc_hadm_ids_marked in test dataset
+    #doc_hadm_ids = [119205, 112942, 163484, 136507, 131550, 123767, 112686, 182238, 116467]
+    doc_idx = [test_ids.index(idx) for idx in doc_hadm_ids]
+
+    # Third: Retrieve the batch number and the specific doc number in the batch
+    if model == 'CLF':
+        batch_size = 4  # batch_size
+        phrase_sizes = [3, 4, 5]
+    else:
+        batch_size = 16  # batch_size
+        phrase_sizes = [3, 4, 5]
+
+    # Energyscores are in same order as test documents during testing
+    # Energyscores of each batch are stored separately
+    batch_vals = []
+    for hadm_id, doc_id in zip(doc_hadm_ids, doc_idx):
+        b = doc_id // batch_size
+        doc_idx_in_batch = doc_id % batch_size - 1
+        if doc_idx_in_batch == -1:
+            doc_idx_in_batch = 0
+        #print(f'{hadm_id}/{doc_id}: bn(doc_pos): {b}({doc_idx_in_batch})')
+        batch_vals.append((b, doc_idx_in_batch))
+
+    test_ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}',
+                                        f'ids_{dataset}_test.csv')).HADM_ID.tolist()
+    if model == 'CLF':
+        with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test_text.pkl'), 'rb') as f:
+            docs_tensor = pickle.load(f)['input_ids'].tolist()
+        d = {'hadm_id': test_ids, 'token2id': docs_tensor}
+        test_docs = pd.DataFrame(data=d)
+        test_docs = test_docs[test_docs['hadm_id'].isin(doc_hadm_ids)]
+        #doc_length = 4096
+        phrase_sizes = [4, 6, 8]
+
+    else:  # CNN and BiGRU / BiLSTM data
+        test_docs = pd.DataFrame(
+            pd.read_pickle(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test.pkl')))
+        test_docs['hadm_id'] = test_ids
+        test_docs = test_docs[test_docs['hadm_id'].isin(doc_hadm_ids)]
+        #test_docs['token2id_max'] = test_docs.apply(lambda x: x.token2id[:doc_length], axis=1)
+        phrase_sizes = [3, 4, 5]
+
+    # Check length of sequence
+    # Get sequence
+    seq = test_docs[test_docs['hadm_id'] == doc_hadm_ids[0]]['token2id'].item()
+    # Need to remove <pad>
+    seq_length = len(seq)
+    if model == 'CLF':
+        if len(seq) > 4096:
+            seq = seq[:4096]
+        else:
+            phrase_tokens = CLF_tokenizer.convert_ids_to_tokens(seq)
+            seq = [token for token in phrase_tokens if token != '<pad>']
+    else:
+        if len(seq) > 3000:
+            seq = seq[:3000]
+    seq_length = len(seq)
+    # Load energy score file
+    for b, doc_idx_in_batch in batch_vals:
+        file_name = f'{model}_{att}_{seed}_test_en_scores_batch{b}.hdf5'
+        if dataset == 'MimicFull':
+            file = os.path.join(path_results, f'{dataset}', f'{model}', file_name)
+        else:
+            file = os.path.join(path_results, f'{dataset}', f'{model}', 'scores', 'analysis', file_name)
+        if os.path.isfile(file):
+            with h5py.File(file, 'r') as f:
+                scores = np.array(f['scores'][()])  # shape [batch size, n_labels, n_tokens]
+                if dataset == 'MimicFull':
+                    scores = scores[doc_idx_in_batch, labels, :]
+                else:
+                    scores = scores[doc_idx_in_batch, :, :]
+        #scores = softmax(scores)
+
+        # Extract phrases with largest average energy scores for 3, 4, 5 and 4, 6, 8 tokens
+        # 1. Loop to extract key phrases for different window sizes across all considered labels
+
+        # Loop through energy score matrix
+        k = 10
+        means = []
+        means_energy = []
+        means_idx = []
+        for l, label in enumerate(labels):
+            scores_label = scores[l]
+
+            label_means = []
+            label_means_energy = []
+            label_means_idx = []
+            # Get subsequences from sequences for 3 (4), 4 (6), and 5 (8) tokens for CNN/RNN (CLF).
+            for ps in phrase_sizes:
+                means_ps = []
+                # Loop through sequence
+                for idx in range(seq_length):
+                    phrase_energy = scores_label[idx:idx+ps]
+                    means_ps.append(np.mean(phrase_energy))
+
+
+
+                # Retrieve idx for the three phrases with the highest average score
+                top_k_idx = list(np.argsort(np.array(means_ps))[::-1][:k])
+
+                for idx in top_k_idx:
+                    label_means.append(means_ps[idx])
+                    label_means_energy.append(scores_label[idx:idx+ps])
+                    label_means_idx.append(idx)
+
+
+            #print(label_means)
+            #print(label_means_energy)
+            #print(label_means_idx)
+
+
+            # Get top 3 means across the phrase sizes for each label
+            top_k_idx = list(np.argsort(np.array(label_means))[::-1][:k])
+
+            # Add means to array that contains the means across the 3 phrase sizes
+            for idx in top_k_idx:
+                means.append(label_means[idx])
+                means_energy.append(label_means_energy[idx])
+                means_idx.append(label_means_idx[idx])
+
+        # Remove duplicate phrases
+        means_idx_no_duplicates = []
+        means_no_duplicates = []
+        means_energy_no_duplicates = []
+        for i, idx in enumerate(means_idx):
+            if idx not in means_idx_no_duplicates:
+                means_idx_no_duplicates.append(idx)
+                means_no_duplicates.append(means[i])
+                means_energy_no_duplicates.append(means_energy[i])
+        # Loop to remove direct neighbors
+        means_idx_old = means_idx_no_duplicates.copy()
+        for i, idi in enumerate(means_idx_no_duplicates):
+            ub = idi + 2
+            lb = idi - 2
+            for j, idj in enumerate(means_idx_no_duplicates[:]):
+                if i != j:
+                    if ub >= idj >= lb:
+                        means_idx_no_duplicates.remove(idj)  # this requires the duplicate removal process
+
+        means_no_duplicates = [means_no_duplicates[means_idx_old.index(idx)] for idx in means_idx_no_duplicates]
+        means_energy_no_duplicates = [means_energy_no_duplicates[means_idx_old.index(idx)] for idx in means_idx_no_duplicates]
+
+        # Get top 3 means across the phrase sizes for each label
+        top_k_ids = list(np.argsort(np.array(means_no_duplicates))[::-1][:k])
+        means = []
+        means_energy = []
+        means_idx = []
+        for idx in top_k_ids:
+            means.append(means_no_duplicates[idx])
+            means_energy.append(means_energy_no_duplicates[idx])
+            means_idx.append(means_idx_no_duplicates[idx])
+
+        top_k_phrases = []
+        for mean, mean_energy, mean_idx in zip(means, means_energy, means_idx):
+            top_k_phrases.append((mean, mean_energy, mean_idx))
+
+        return top_k_phrases
+
+
+def get_phrases_for_doc(top_k_phrases, model: str, att: str, doc_hadm_ids: int, dataset: str, seed: int = 42):
+    test_ids = pd.read_csv(os.path.join(root, 'data', 'processed', f'data_{dataset}',
+                                        f'ids_{dataset}_test.csv')).HADM_ID.tolist()
+    if model == 'CLF':
+        with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test_text.pkl'), 'rb') as f:
+            docs_tensor = pickle.load(f)['input_ids'].tolist()
+        d = {'hadm_id': test_ids, 'token2id': docs_tensor}
+        test_docs = pd.DataFrame(data=d)
+        test_docs = test_docs[test_docs['hadm_id'].isin(doc_hadm_ids)]
+        #doc_length = 4096
+        #phrase_sizes = [6, 8, 10]
+
+    else:  # CNN and BiGRU / BiLSTM data
+        test_docs = pd.DataFrame(
+            pd.read_pickle(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'X_{dataset}_test.pkl')))
+        test_docs['hadm_id'] = test_ids
+        test_docs = test_docs[test_docs['hadm_id'].isin(doc_hadm_ids)]
+        #doc_length = 3000
+        #test_docs['token2id_max'] = test_docs.apply(lambda x: x.token2id[:doc_length], axis=1)
+        #phrase_sizes = [3, 4, 5]
+
+    seq = test_docs[test_docs['hadm_id'] == doc_hadm_ids[0]]['token2id'].item()
+
+    phrases = []
+    for top_phrase in top_k_phrases:
+        mean_score = top_phrase[0]
+        phrase_scores = top_phrase[1]
+        len_seq = phrase_scores.shape[0]
+        start_pos = top_phrase[2]
+
+        phrase_idx = seq[start_pos: start_pos + len_seq]
+        # Decode sequence
+        if model == 'CLF':
+            phrase_tokens = CLF_tokenizer.convert_ids_to_tokens(phrase_idx)
+        else:
+            with open(os.path.join(root, 'data', 'processed', f'data_{dataset}', f'vocab_{dataset}.pkl'), 'rb') as f:
+                vocab = pickle.load(f)
+            phrase_tokens = vocab.lookup_tokens(phrase_idx)
+        phrases.append((phrase_tokens, mean_score, phrase_scores, start_pos))
+
+    print(f'{model}/{att}: {phrases}')
+    return phrases
 
 
 def get_token_ids(model: str, att: str, split: str) -> List[int]:
@@ -600,8 +1048,8 @@ def load_prediction_files(models: List[str], atts: List[str], n_docs: int, seeds
             predictions_dict[model] = {}
             for att in atts:
                 predictions_dict[att] = {}
-                preds_matrix = np.zeros((len(seeds), n_docs, 50), dtype=int)
-                probs_matrix = np.zeros((len(seeds), n_docs, 50), dtype=float)
+                preds_matrix = np.zeros((len(seeds), n_docs, len(mimic50_labels)), dtype=int)
+                probs_matrix = np.zeros((len(seeds), n_docs, len(mimic50_labels)), dtype=float)
                 for s, seed in enumerate(seeds):
                     # Retrieve predictions
                     file_name = f'{model}_Mimic50_{att}_{params[model]}_{seed}_test_preds.txt'
@@ -638,15 +1086,14 @@ def load_prediction_files(models: List[str], atts: List[str], n_docs: int, seeds
 
                 preds_matrix = np.round(np.mean(preds_matrix, axis=0))
                 probs_matrix = np.median(probs_matrix, axis=0)
-
-                predictions_dict[model][att] = {'preds': preds_matrix, 'probs': probs_matrix}
+                predictions_dict[model][att] = {'hadm_ids': hadm_ids, 'preds': preds_matrix, 'probs': probs_matrix}
         with open(os.path.join(path_results, f'Mimic50_consolidated_preds_probs.pkl'), 'wb') as f:
             pickle.dump(predictions_dict, f)
 
     return predictions_dict
 
 
-def retrieve_docs_with_labels(models, atts, labels: List[str]):
+def retrieve_docs_with_labels(models, atts, path_dataset, labels: List[str], n_labels: int = None):
     """
     This function retrieves documents with ground-truth labels for all labels.
 
@@ -665,114 +1112,155 @@ def retrieve_docs_with_labels(models, atts, labels: List[str]):
         List containing hadm_ids for each document associated with all labels
 
     """
+    # Load raw dataset which contains ground truth labels for each processed hospital admission ID
+    df_50 = pd.read_pickle(os.path.join(path_dataset, 'DATA_Mimic50.pkl'))
 
-    # Load base data set
+    # Load hospital admission IDs (HADM_ID) associated with test dataset
+    test_HADM_IDs = pd.read_csv(os.path.join(path_dataset, 'ids_Mimic50_test.csv')).HADM_ID.tolist()
+    predictions_dict = load_prediction_files(models=models, atts=atts, n_docs=len(test_HADM_IDs))
 
-    test_ids = pd.read_csv(os.path.join(path_mimic50, 'ids_Mimic50_test.csv')).HADM_ID.tolist()
-    predictions_dict = load_prediction_files(models=models, atts=atts, n_docs=len(test_ids))
+    # Subset raw data to only contain test samples
+    df_test = df_50[df_50['HADM_ID'].isin(test_HADM_IDs)]
+    print(df_test.head(3))
+    df_test_shape = df_test.shape
+    print(f'Shape of dataset: {df_test_shape}')
+    # remove documents that have more than specified number of ground-truth labels
+    if n_labels is not None:
+        df_test['n_labels'] = df_test.apply(lambda x: len(x['ICD9_CODE']), axis=1)
+        df_test = df_test[df_test['n_labels'] <= n_labels]
+        print(
+            f'Setting maximum number of ground-truth labels to {n_labels} removed {df_test_shape[0] - df_test.shape[0]} documents')
+        df_test_shape = df_test.shape
+        print(f'Shape of reduced dataset: {df_test_shape}')
 
-    df_50 = pd.read_pickle(os.path.join(path_mimic50, 'DATA_Mimic50.pkl'))
-    test_ids = pd.read_csv(
-        os.path.join(path_hadm50, f'hadm_ids_Mimic50_test.csv')).hadm_id.tolist()
-    df_test = df_50[df_50['HADM_ID'].isin(test_ids)]
+    # Remove documents that do not possess selected labels
+    df_test['contains_labels'] = df_test.apply(lambda x: all(item in x.ICD9_CODE for item in labels), axis=1)
+    df_test = df_test[df_test['contains_labels'] == True]
+    print(
+        f'Removing documents that do not contain the labels {labels} removed {df_test_shape[0] - df_test.shape[0]}')
+    df_test_shape = df_test.shape
+    print(f'Shape of reduced dataset: {df_test_shape}')
+    doc_ids = df_test.HADM_ID.tolist()
+    doc_nlabels = df_test.n_labels.tolist()
+    print(doc_ids)
 
-    df_Y = df_test[['HADM_ID', 'ICD9_CODE']]
+    # Check if documents have correctly predicted labels
+    df_test['label_indices'] = df_test.apply(lambda x: [mimic50_labels.index(code) for code in x['ICD9_CODE']], axis=1)
+    docs_label_indices = df_test['label_indices'].tolist()
+    d = {str(doc_id): [] for doc_id in doc_ids}
+    for model in models:
+        for att in atts:
+            # Need to retrieve information about predictions / probabilities for documents in question
+            docs_indices = [predictions_dict[model][att]['hadm_ids'].index(str(hadm_id)) for hadm_id in doc_ids]
+            docs_preds = predictions_dict[model][att]['preds'][docs_indices]
+            docs_probs = predictions_dict[model][att]['probs'][docs_indices]
 
-    for label in labels:
-        # retrieve index of label; index is connected with position of stored prediction and probability matrix
-        idx = mimic50_labels.index(label)
-        df_Y[label] = df_Y.apply(lambda x: check_label_in_Y(x.ICD9_CODE, label), axis=1)
+            for doc_id, doc_label_indices, doc_preds, doc_probs in zip(doc_ids, docs_label_indices, docs_preds, docs_probs):
+                doc_preds = doc_preds[doc_label_indices]
+                d[str(doc_id)].append(np.sum(doc_preds))
+    sums = []
+    for (doc_id, preds), n_labels in zip(d.items(), doc_nlabels):
+        sums.append(sum(preds)/n_labels)
 
-    df_Y['sum'] = df_Y[labels].sum(axis=1)
-
-    denominator = len(labels)
-    while True:
-        if df_Y[df_Y['sum'] == denominator].empty:
-            denominator -= 1
-        else:
-            subset = df_Y[df_Y['sum'] == denominator]
-            break
-
-    doc_ids = subset.HADM_ID.tolist()
-
+    max_idx = np.argmax(sums)
+    doc_id = doc_ids[max_idx]
+    doc_id = np.random.choice(doc_ids, 1)[0]
     return doc_ids
 
 
-def get_energyscores_for_seq(dict_scores: Dict[str, Dict[str, float]], seq: List[int]):
+def id2energy(energy_scores: Dict[str, Dict[str, float]], seq: List[int]):
+    return [energy_scores[idx]['mean'] for idx in seq]
+
+
+def get_top_k_phrases(labels: List[str],
+                      energy_scores: Dict[str, Dict[str, float]],
+                      window_sizes: List[int],
+                      seq: List[int]) -> List[Tuple[int, List[float]]]:
+
     """
-    Function that looks up energy scores for each token in the sequence and returns a sequence of token-specific
-    energy scores.
+    Function that extract the top k key phrases (i.e., phrases with the largest average energy scores) for a given
+    document sequence. The key phrases can be 3, 4, or 5 tokens long for CNN and RNNs. Since CLFs are looking at sub-
+    word tokens we allow the model extract 4, 6, or 8 token-long phrases. Since we look at differently long phrases,
+    the program could extract duplicate phrases (i.e., the same phrase with one or more tokens); therefore, to allow
+    more diversity in the selected key phrases we remove key phrases that are within 3 tokens of the next highest phrase
 
     Parameters
     ----------
-    dict_scores : Dict[str, Dict[str, float]]
-        Dictionary that contains the energy score for each token for a specific attention mechanism or
-        text encoder architecture
+    labels : List[str]
+        List of ground-truth labels associated
+    energy_scores : Dict[str, Dict[str, float]]
+        Dictionary that contains the energy scores for each label; each label has different energy scores associated
+        with each token
+    window_sizes : List[int]
+        Number of tokens looked at the same time
     seq : List[int]
-        Integer-based sequences of the clinical documents
+        Original integer-indexed document sequence
 
     Returns
     -------
-    List[float]
+    List[Tuple[int, List[float]]]
 
     """
 
-    return [dict_scores[idx]['mean'] for idx in seq]
+    # 1. Loop to extract key phrases for different window sizes across all considered labels
 
+    means = []
+    phrases = []
+    ids = []
+    for label in labels:
+        seq_energy = id2energy(energy_scores=energy_scores[label], seq=seq)
+        len_seq = len(seq_energy)
+        for i, ws in enumerate(window_sizes):
+            for idx in range(len_seq):
+                phrase = seq_energy[idx:idx + ws]
+                phrases.append(phrase)
+                means.append(np.mean(phrase))
+                ids.append(idx)
 
-def get_phrase_with_max_ave_scores(seq: List[float],
-                                   phrase_sizes: List[int],
-                                   get_att_scores: bool = False):
-    """
-    Function that returns the phrase with the largest averaged energy scores among phrases with 3(4), 4(6), or 5(8)
-    tokens (integers reflect CLF tokens); The clinical longformer utilizes a byte-pair vocabulary and htus, has a larger
-    token to word-ratio then the CNN and RNNs.
+    # Extract top 15 phrases for the document and labels - np.argsort(retrieves the indices of the 15 largest mean
+    # energy scores
+    top_phrases_ids = list(np.argsort(np.array(means))[::-1][:50])
 
-    Parameters
-    ----------
-    seq : List[float]
-        List with energy scores, where each element is an energy score for a specific token
-    phrase_sizes : List[int]
-        List containing the sizes (number of tokens) of the phrases
-    get_att_scores : bool; default=False
-        FLag indicating if max phrase should be retrieved based on attention scores
+    ### The following code block removes duplicate phrases, i.e., phrases that start at the same index in the document
+    # Assign each extract index position to retrieve the actual index position in the document
+    top_ids = [ids[idx] for idx in top_phrases_ids]
+    # The following loops ensures that we extract at least 3 unique key phrases
 
-    Returns
-    -------
-    Tuple(int, List[float])
+    # This loop removes duplicate indices but retains the phrase with the largest energy energy score
+    top_k_ids = []
+    for elem in top_ids:
+        if elem not in top_k_ids:
+            top_k_ids.append(elem)
 
-    """
+    # This loop removes phrases that are very close to each other and do not provide new insight
+    for i, idi in enumerate(top_k_ids):
+        ub = idi + 3
+        lb = idi - 3
+        for j, idj in enumerate(top_k_ids[:]):
+            if i != j:
+                if ub >= idj >= lb:
+                    top_k_ids.remove(idj)  # this requires the duplicate removal process
 
-    # Loop through each phrase of the sequence
-    if get_att_scores:
-        seq = softmax(seq)
-    max_phrases = []
-    for ps in phrase_sizes:
-        energy_means_per_phrase = []
-        for idx in range(len(seq)):
-            # compute mean and append to list
-            phrase_mean = np.mean(seq[idx:idx + ps])
-            energy_means_per_phrase.append(phrase_mean)
+    top_k_ids = top_k_ids[:6]  # Make sure we have max 3 phrases
 
-        # transform list to array to make use of numpy argmax function
-        energy_means_per_phrase_arr = np.array(energy_means_per_phrase)
+    # This just helps to retrieve the appropriate phrases
+    helper_list = []
+    for idx in top_k_ids:
+        for i, idx_og in enumerate(top_ids):
+            if idx == idx_og:
+                helper_list.append(i)
+                break
+    top_k_phrases_ids = [top_phrases_ids[idx] for idx in helper_list]
 
-        # Get index of max phrase; index implicitly indicates the position of the first token
-        starting_idx_of_max_phrase = np.argmax(energy_means_per_phrase_arr)
-
-        # Retrieve phrase
-        max_phrase = seq[starting_idx_of_max_phrase: starting_idx_of_max_phrase + ps]
-        max_phrases.append((starting_idx_of_max_phrase, max_phrase))
-    mean_energy_max_phrases = np.array([np.mean(phrase[1]) for phrase in max_phrases])
-    max_phrase_all = max_phrases[np.argmax(mean_energy_max_phrases)]
-
-    return max_phrase_all
+    # Retrieve phrases
+    top_k_phrases = [(idx, phrases[i]) for idx, i in zip(top_k_ids, top_k_phrases_ids)]
+    return top_k_phrases
 
 
 def softmax(x):
     """Compute softmax values for each sets of scores in x."""
     e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum(axis=0) # only difference
+    return e_x / e_x.sum(axis=0)  # only difference
 
 
 def get_phrase(model: str, seq: List[int], starting_idx_of_max_phrase: int, ps: int = 5):
@@ -866,21 +1354,43 @@ def get_phrases_with_largest_score(models: List[str],
         the dataset
 
     """
-
-    if isinstance(doc_ids, list):
-        pass
-    else:
-        doc_ids = [doc_ids]
     test_ids = pd.read_csv(os.path.join(path_mimic50, 'ids_Mimic50_test.csv')).HADM_ID.tolist()
-    predictions_dict = load_prediction_files(models=models, atts=atts, n_docs=len(test_ids))  # df_test.shape[0])
+    predictions_dict = load_prediction_files(models=models, atts=atts, n_docs=len(test_ids))
+
+    df_50 = pd.read_pickle(os.path.join(path_mimic50, 'DATA_Mimic50.pkl'))
+    df_test = df_50[df_50['HADM_ID'].isin(doc_ids)]
+    labels = df_test.ICD9_CODE.tolist()[0]
+
 
     # Loop through all models and attention mechanisms that were specified
-    for label in labels:
-        data = []
+    data = []
+    for model in models:
+        path_res_energy = os.path.join(path_results, f'results_analysis_{model}', 'scores', 'energy_processed/')
+        for att in atts:
+            doc_pred_id = predictions_dict[model][att]['hadm_ids'].index(str(doc_ids[0]))
+            preds = predictions_dict[model][att]['preds'][doc_pred_id]
+            probs = predictions_dict[model][att]['probs'][doc_pred_id]
 
-        for model in models:
-            path_res_energy = os.path.join(path_results, f'results_analysis_{model}', 'scores', 'energy_processed/')
+            pred_labels = []
+            for i, (pred, prob) in enumerate(zip(preds, probs)):
+                if pred == 1:
+                    pred_labels.append(mimic50_labels[i])
 
+            prob_y_labels = []
+            for label in labels:
+                idx = mimic50_labels.index(label)
+                prob_y_labels.append(probs[idx])
+
+            prob_yhat_labels = []
+            for pred_label in pred_labels:
+                idx = mimic50_labels.index(pred_label)
+                prob_yhat_labels.append(probs[idx])
+
+            # Loading dictionary containing energy scores for each model and label attention combination
+            with open(os.path.join(path_res_energy, f'{model}_{att}_{split}_energyscores.pkl'), 'rb') as f:
+                dict_scores = pickle.load(f)
+
+            print(f'Extracting top k phrases for {model} with {att} label attention: ')
             # Sequences are different for the CNN,RNNs and the CLF
             if model == 'CLF':
                 with open(os.path.join(path_mimic50, f'X_Mimic50_test_text.pkl'), 'rb') as f:
@@ -889,9 +1399,9 @@ def get_phrases_with_largest_score(models: List[str],
                 test_docs = pd.DataFrame(data=d)
                 test_docs = test_docs[test_docs['hadm_id'].isin(doc_ids)]
                 doc_length = 4096
-                phrase_sizes = [4, 6, 8]
+                phrase_sizes = [6, 8, 10]
 
-            else: # CNN and BiGRU / BiLSTM data
+            else:  # CNN and BiGRU / BiLSTM data
 
                 test_docs = pd.DataFrame(
                     pd.read_pickle(os.path.join(path_mimic50, f'X_Mimic50_test.pkl')))
@@ -902,77 +1412,47 @@ def get_phrases_with_largest_score(models: List[str],
                 test_docs['token2id_max'] = test_docs.apply(lambda x: x.token2id[:doc_length], axis=1)
                 phrase_sizes = [3, 4, 5]
 
-            for att in atts:
-                # Load model/att specific dictionary containing the energyscores for each token per label
+            seq = test_docs[test_docs['hadm_id'] == doc_ids]['token2id_max'].item()
 
-                if hier_cat_context_K:
-                    with open(os.path.join(path_res_energy, f'{model}_{att}_{split}_EC1K_energyscores.pkl'), 'rb') as f:
-                        dict_scores = pickle.load(f)
-                elif hier_query_label_K:
-                    with open(os.path.join(path_res_energy, f'{model}_{att}_{split}_EQ2K_energyscores.pkl'), 'rb') as f:
-                        dict_scores = pickle.load(f)
-                else:
-                    with open(os.path.join(path_res_energy, f'{model}_{att}_{split}_energyscores.pkl'), 'rb') as f:
-                        dict_scores = pickle.load(f)
+            top_k_phrases = get_top_k_phrases(labels=labels,
+                                              energy_scores=dict_scores,
+                                              window_sizes=phrase_sizes,
+                                              seq=seq)
+            top_k_phrases_decoded = []
+            for idx, phrase in top_k_phrases:
+                phrase_decoded = get_phrase(model=model, seq=seq, starting_idx_of_max_phrase=idx, ps=len(phrase))
+                top_k_phrases_decoded.append(phrase_decoded)
 
-            # Loop through each specified label to extract the phrases with the largest energy scores
-                for doc_idx in doc_ids:
-                    seq = test_docs[test_docs['hadm_id']==doc_idx]['token2id_max'].iloc[0]
 
-                    mean_energy_scores = get_energyscores_for_seq(dict_scores=dict_scores[label], seq=seq)
+            data.append([model, att, doc_ids[0], labels, prob_y_labels, pred_labels, prob_yhat_labels])
+            columns = ['model', 'att_module', 'hadm_id', 'y_labels', 'y_probs', 'yhat_labels', 'yhat_probs']
 
-                    max_phrase_scores = get_phrase_with_max_ave_scores(seq=mean_energy_scores,
-                                                                       phrase_sizes=phrase_sizes,
-                                                                       get_att_scores=get_att_scores)
-                    max_phrase_tokens = get_phrase(model=model,
-                                                   seq=seq,
-                                                   starting_idx_of_max_phrase=max_phrase_scores[0],
-                                                   ps=len(max_phrase_scores[1]))
+            for i, (energy_phrase, phrase) in enumerate(zip(top_k_phrases, top_k_phrases_decoded)):
+                data[-1].append(energy_phrase)
+                data[-1].append(phrase)
+                columns.append(f'{i+1}_phrase_scores')
+                columns.append(f'{i+1}_phrase_tokens')
 
-                    max_phrase_context = get_context_of_phrase(model=model,
-                                                               seq=seq,
-                                                               starting_idx_of_max_phrase=max_phrase_scores[0],
-                                                               ps=len(max_phrase_scores[1]), ws=6)
 
-                    data.append([model, att, label,
-                                 mimic50_desc_dict[label],
-                                 doc_idx, 1,
-                                 predictions_dict[model][att]['preds'][test_ids.index(doc_idx)][mimic50_labels.index(label)],
-                                 predictions_dict[model][att]['probs'][test_ids.index(doc_idx)][mimic50_labels.index(label)],
-                                 max_phrase_scores, max_phrase_tokens, max_phrase_context])
-        df = pd.DataFrame(data=data,
-                          columns=['model', 'att_module', 'label', 'desc', 'doc_idx', 'y', 'y_hat', 'y_prob',
-                                   'phrase_scores', 'phrase_tokens',
-                                   'phrase_context'])
-        df.to_excel(os.path.join(path_results, 'tokens_phrases', f'Mimic50_max_phrase_{label}.xlsx'))
-
+    df = pd.DataFrame(data=data,
+                      columns=columns)
+    df.to_excel(
+        os.path.join(path_results, 'tokens_phrases', f'Mimic50_max_phrases_{doc_ids[0]}.xlsx'))
     return df
 
 
 def compute_energyscores_statistics(models: str,
                                     atts: str,
-                                    min_words: int = 3,
-                                    hier_cat_context_K: bool = False,
-                                    hier_query_label_K: bool = False):
-
+                                    min_words: int = 3):
     stats_label = []
     stats_modelatt = []
     for model in models:
         path_res_energy = os.path.join(path_results, f'results_analysis_{model}', 'scores', 'energy_processed/')
 
         for att in atts:
-            if hier_cat_context_K:
-                with open(os.path.join(path_res_energy,
-                                       f'{model}_{att}_test_EC1K_energyscores.pkl'), 'rb') as f:
-                    d_scores = pickle.load(f)
-            elif hier_query_label_K:
-                with open(os.path.join(path_res_energy,
-                                       f'{model}_{att}_test_EQ2K_energyscores.pkl'), 'rb') as f:
-                    d_scores = pickle.load(f)
-            else:
-                with open(os.path.join(path_res_energy,
-                                       f'{model}_{att}_test_energyscores.pkl'), 'rb') as f:
-                    d_scores = pickle.load(f)
+            with open(os.path.join(path_res_energy,
+                                   f'{model}_{att}_test_energyscores.pkl'), 'rb') as f:
+                d_scores = pickle.load(f)
             vals_modelatt = []
             for label in d_scores.keys():
                 vals = []
@@ -999,7 +1479,6 @@ def compute_energyscores_statistics(models: str,
                             np.round(n_pos_per, 3), np.round(n_neg_per, 3)]
                 stats_label.append(elements)
 
-
             vals_modelatt = np.array(vals_modelatt, dtype=np.float64)
             summation = np.sum(np.array(list(map(abs, vals_modelatt)), dtype=np.float64))
             mean = np.mean(vals_modelatt)
@@ -1014,51 +1493,29 @@ def compute_energyscores_statistics(models: str,
             n_neg_per = np.sum(vals_modelatt < 0) / len(vals_modelatt)
             elements_modelatt = [model, att, np.round(summation, 3), np.round(mean, 3),
                                  np.round(std, 3), np.round(CV, 3),
-                                  np.round(min, 3), np.round(max, 3),
+                                 np.round(min, 3), np.round(max, 3),
                                  np.round(median, 3), np.round(Q25, 3), np.round(Q75, 3),
                                  np.round(n_pos_per, 3), np.round(n_neg_per, 3)]
             stats_modelatt.append(elements_modelatt)
             fig = plt.figure(figsize=(10, 8))
             plt.hist(vals_modelatt, bins=20)
-            plt.savefig(os.path.join(path_results, 'energyscores', f'{model}_{att}_energyscores_distribution_mw{min_words}.png'))
+            plt.savefig(os.path.join(path_results, 'energyscores',
+                                     f'{model}_{att}_energyscores_distribution_mw{min_words}.png'))
             plt.close(fig)
 
+    df = pd.DataFrame(data=stats_label,
+                      columns=['model', 'att_module', 'label', 'sum', 'mean', 'std', 'CV', 'min', 'max',
+                               'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
 
+    df.to_excel(
+        os.path.join(path_results, 'energyscores', f'energyscore_descriptive_stats_label_mw{min_words}.xlsx'))
 
-    if hier_cat_context_K:
-        df = pd.DataFrame(data=stats_label,
-                          columns=['model', 'att_module', 'label', 'sum', 'mean', 'std', 'CV', 'min', 'max',
-                                   'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
+    df = pd.DataFrame(data=stats_modelatt,
+                      columns=['model', 'att_module', 'sum', 'mean', 'std', 'CV', 'min', 'max',
+                               'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
 
-        df.to_excel(os.path.join(path_results, 'energyscores', f'energyscore_EC1K_descriptive_stats_label_mw{min_words}.xlsx'))
-        df = pd.DataFrame(data=stats_modelatt,
-                          columns=['model', 'att_module', 'sum', 'mean', 'std', 'CV', 'min', 'max',
-                                   'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
-
-        df.to_excel(os.path.join(path_results, 'energyscores', f'energyscore_EC1K_descriptive_stats_modelatt_mw{min_words}.xlsx'))
-    elif hier_query_label_K:
-        df = pd.DataFrame(data=stats_label,
-                          columns=['model', 'att_module', 'label', 'sum', 'mean', 'std', 'CV', 'min', 'max',
-                                   'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
-
-        df.to_excel(os.path.join(path_results, 'energyscores', f'energyscore_EQ2K_descriptive_stats_label_mw{min_words}.xlsx'))
-        df = pd.DataFrame(data=stats_modelatt,
-                          columns=['model', 'att_module', 'sum', 'mean', 'std', 'CV', 'min', 'max',
-                                   'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
-
-        df.to_excel(os.path.join(path_results, 'energyscores', f'energyscore_EQ2K_descriptive_stats_modelatt_mw{min_words}.xlsx'))
-    else:
-        df = pd.DataFrame(data=stats_label,
-                          columns=['model', 'att_module', 'label', 'sum', 'mean', 'std', 'CV', 'min', 'max',
-                                   'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
-
-        df.to_excel(os.path.join(path_results, 'energyscores', f'energyscore_descriptive_stats_label_mw{min_words}.xlsx'))
-
-        df = pd.DataFrame(data=stats_modelatt,
-                          columns=['model', 'att_module', 'sum', 'mean', 'std', 'CV', 'min', 'max',
-                                   'median', 'Q25', 'Q75', 'n_pos_per', 'n_neg_per'])
-
-        df.to_excel(os.path.join(path_results, 'energyscores', f'energyscore_descriptive_stats_modelatt_mw{min_words}.xlsx'))
+    df.to_excel(
+        os.path.join(path_results, 'energyscores', f'energyscore_descriptive_stats_modelatt_mw{min_words}.xlsx'))
 
 
 import argparse
@@ -1107,6 +1564,9 @@ parser.add_argument('-kg', '--get_k_largest_tokens',
 parser.add_argument('-l', '--labels',
                     nargs='+',
                     default=['39.95', '36.15', '39.61', '427.31'])
+parser.add_argument('-nl', '--n_labels',
+                    type=int,
+                    default=None)
 parser.add_argument('-gp', '--get_phrases',
                     type=bool,
                     choices=[True, False])
@@ -1130,12 +1590,28 @@ parser.add_argument('-gas', '--get_att_scores',
                     default=False,
                     choices=[True, False],
                     help='Flag indicating if most important phrases should be retrieved based on the attention scores')
+parser.add_argument('-d', '--dataset',
+                    type=str,
+                    choices=['MimicFull', 'Mimic50'])
+parser.add_argument('-ged', '--get_energy_doc',
+                    type=bool,
+                    default=False,
+                    choices=[True, False])
+parser.add_argument('-gedl', '--get_energy_doc_label',
+                    type=bool,
+                    default=False,
+                    choices=[True, False])
+parser.add_argument('-gpf', '--get_phrase_frequencies',
+                    type=bool,
+                    default=False,
+                    choices=[True, False])
 
 args = parser.parse_args()
 
 
 def main():
     models = args.model
+    dataset =args.dataset
     atts = args.attention_module
     pre = args.preprocessing
     pre_CK = args.pre_catcontext_K
@@ -1145,27 +1621,33 @@ def main():
     mw = args.min_words
     k_get = args.get_k_largest_tokens
     labels = args.labels
+    n_labels = args.n_labels
     get_phrases = args.get_phrases
     ps = args.phrase_size
     doc_ids = args.doc_indices
-    compute_similarities = args.compute_similarities
     ges = args.get_energyscore_stats
     get_att_scores = args.get_att_scores
+    get_energy_doc = args.get_energy_doc
+    get_energy_doc_label = args.get_energy_doc_label
+    get_phrase_frequencies = args.get_phrase_frequencies
+    if dataset == 'MimicFull':
+        seeds = ['25']
+    else:
+        seeds = ['13', '25', '42', '87', '111']
     if pre:
         for model in models:
             for att in atts:
                 t = time.process_time()
-                load_scores(model=model, att=att, path_dataset=path_mimic50,
-                            path_results=path_results, hier_cat_context_K=pre_CK, hier_query_label_K=pre_QK)
-                consolidate_seed_dicts(model=model, att=att, path_results=path_results,
-                                       hier_cat_context_K=pre_CK, hier_query_label_K=pre_QK)
+                load_scores(model=model, att=att, dataset=dataset, path_results=path_results, seeds=seeds)
+
+                consolidate_seed_dicts(model=model, att=att, path_results=path_results, dataset=dataset, seeds=seeds)
                 elapsed_time = time.process_time() - t
                 print(f'Processing time: {elapsed_time}')
 
     if kp:
         d = {}
         for model in models:
-            train_token_freqs = get_train_token_freqs(model=model, path_dataset=path_mimic50)
+            train_token_freqs = get_train_token_freqs(model=model, )
             d[model] = {}
             for att in atts:
                 k_token_dict = get_k_largest_scores(model=model,
@@ -1176,19 +1658,64 @@ def main():
                 d[model][att] = k_token_dict
         create_dfs_from_dict(d, k=k, min_words=mw)
 
+    if get_energy_doc:
+
+        for doc_id in doc_ids:
+            d = {'models': [], 'atts': [], 'rank': [], 'phrase': [], 'mean_energy': [], 'energy': [], 'pos': []}
+            for model in models:
+                for att in atts:
+                    top_k_phrases = load_energy_for_doc(model=model,
+                                                        att=att,
+                                                        doc_hadm_ids=[doc_id],
+                                                        dataset=dataset,
+                                                        seed=25)
+                    top_k_phrases = get_phrases_for_doc(top_k_phrases=top_k_phrases,
+                                                        model=model,
+                                                        att=att,
+                                                        doc_hadm_ids=[doc_id],
+                                                        dataset=dataset,
+                                                        seed=25)
+
+                    for rank, phrase in enumerate(top_k_phrases):
+                        d['models'].append(model)
+                        d['atts'].append(att)
+                        d['rank'].append(rank+1)
+                        d['phrase'].append(phrase[0])
+                        d['mean_energy'].append(phrase[1])
+                        d['energy'].append(phrase[2])
+                        d['pos'].append(phrase[3])
+
+            df = pd.DataFrame(d)
+
+            df.to_excel(os.path.join(path_results, f'{dataset}', f'phrases_{dataset}_{doc_id}.xlsx'))
+
+    if get_energy_doc_label:
+        for model in models:
+            for att in atts:
+                top_k_phrases = load_energy_for_doc_label(model=model, att=att, dataset=dataset)
+
+    if get_phrase_frequencies:
+        for model in models:
+            for att in atts:
+                get_phrase_frequency(model=model, att=att, dataset=dataset)
     if k_get:
         get_k_tokens(models=models, atts=atts, labels=labels, min_words=mw)
 
     if get_phrases:
         if doc_ids is None:
-            doc_ids = retrieve_docs_with_labels(models=models, atts=atts, labels=labels)
-            # doc_ids = np.random.choice(doc_ids, 1).tolist()
-        print(f'Extract phrases for document with HADM-ID: {doc_ids}')
-        get_phrases_with_largest_score(models=models,
-                                       atts=atts,
-                                       labels=labels,
-                                       doc_ids=doc_ids,
-                                       get_att_scores=get_att_scores)
+            doc_ids = retrieve_docs_with_labels(models=models, atts=atts, labels=labels, n_labels=int(n_labels))
+            print(doc_ids)
+            if len(doc_ids) == 0:
+                quit()
+
+        #    doc_ids = np.random.choice(doc_ids, 1).tolist()
+        # print(f'Extract phrases for document with HADM-ID: {doc_ids}')
+        for doc_id in doc_ids:
+            get_phrases_with_largest_score(models=models,
+                                           atts=atts,
+                                           labels=labels,
+                                           doc_ids=[doc_id],
+                                           get_att_scores=get_att_scores)
 
     if ges:
         compute_energyscores_statistics(models=models,
@@ -1200,4 +1727,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
