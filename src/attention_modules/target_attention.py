@@ -2,7 +2,7 @@
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 09/12/2022
-    @last modified: 09/12/2022
+    @last modified: 03/07/2023
 
 
 
@@ -135,4 +135,4 @@ class TargetAttention(nn.Module):
             # Where c_i represents the document context vector for the i-th label in the label space
             # C ∈ R^nxd, where n: number of labels and d: latent document dimension
             C = A.matmul(V)
-        return C
+        return C, E
