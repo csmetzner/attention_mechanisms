@@ -1,5 +1,5 @@
 PathReports:
-  doc_max_len: 2500
+  doc_max_len: 3000
   n_cats:
     site: ~
     subsite: ~

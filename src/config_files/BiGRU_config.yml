@@ -25,5 +25,5 @@ train_kwargs:
   quartiles: False
   individual: False
   parameter_tuning: False
-  return_att_scores: False
+  return_en_scores: False
 
