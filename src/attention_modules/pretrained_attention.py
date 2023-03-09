@@ -142,4 +142,4 @@ class PretrainedAttention(nn.Module):
             A = F.softmax(input=E, dim=-1)
             C = A.matmul(V)
 
-            return C, E, Q
+            return C, E

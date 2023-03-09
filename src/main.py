@@ -4,7 +4,7 @@ the models, and performing training, validating, and testing of the models.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/24/2022
+    @last modified: 03/07/2022
 """
 
 # built-in libraries
@@ -142,39 +142,7 @@ class ExperimentSuite:
                           embedding_scaling: float = None,
                           parameter_tuning: bool = None,
                           learning_rate: float = None,
-                          return_att_scores: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
-        """
-        This function checks and if necessary alters the model config yml file.
-
-        Parameters
-        ----------
-        model
-        dataset
-        att_module
-        task
-        embedding_dim
-        dropout_p
-        batch_size
-        epochs
-        doc_max_len
-        patience
-        scale
-        multihead
-        num_heads
-        hidden_dim
-        window_sizes
-        quartiles
-        individual
-        embedding_scaling
-        parameter_tuning
-        learning_rate
-        return_att_scores
-
-        Returns
-        -------
-        Dict[str: Dict[str, Union[str, int, float]]
-
-        """
+                          return_en_scores: bool = None) -> Dict[str, Union[str, Dict[str, Union[None, int, float, str, List[int]]]]]:
 
         # Create path to config_files
         path_config = os.path.join(root, 'src', 'config_files')
@@ -275,8 +243,8 @@ class ExperimentSuite:
             self._model_args['train_kwargs']['parameter_tuning'] = parameter_tuning
         if learning_rate is not None:
             self._model_args['train_kwargs']['lr'] = learning_rate
-        if return_att_scores is not None:
-            self._model_args['train_kwargs']['return_att_scores'] = return_att_scores
+        if return_en_scores is not None:
+            self._model_args['train_kwargs']['return_en_scores'] = return_en_scores
         return self._model_args
 
     def fit_model(self,
@@ -294,7 +262,7 @@ class ExperimentSuite:
         quartiles = model_args['train_kwargs']['quartiles']
         individual = model_args['train_kwargs']['individual']
         parameter_tuning = model_args['train_kwargs']['parameter_tuning']
-        return_att_scores = model_args['train_kwargs']['return_att_scores']
+        return_en_scores = model_args['train_kwargs']['return_en_scores']
 
         model_name = f"{self._model}" \
                      f"_{self._dataset}" \
@@ -348,13 +316,6 @@ class ExperimentSuite:
         else:
             raise Exception('Invalid model type!')
 
-        n = 0
-        for parameter in model.parameters():
-            print(parameter.size())
-            n += parameter.size()[0]
-        print(n)
-        quit()
-
         # Set up parallel computing if possible
         model.to(device)
         if torch.cuda.device_count() > 1:
@@ -374,17 +335,17 @@ class ExperimentSuite:
             else:
                 epoch = 0
 
-            epoch, queries_epochs = train(model=model,
-                                          train_kwargs=model_args['train_kwargs'],
-                                          optimizer=optimizer,
-                                          train_loader=train_loader,
-                                          epoch=epoch,
-                                          transformer=self._transformer,
-                                          val_loader=val_loader,
-                                          scheduler=scheduler,
-                                          save_name=save_name,
-                                          return_att_scores=return_att_scores,
-                                          att_module=self._att_module)
+            epoch = train(model=model,
+                          train_kwargs=model_args['train_kwargs'],
+                          optimizer=optimizer,
+                          train_loader=train_loader,
+                          epoch=epoch,
+                          transformer=self._transformer,
+                          val_loader=val_loader,
+                          scheduler=scheduler,
+                          save_name=save_name,
+                          return_en_scores=return_en_scores,
+                          att_module=self._att_module)
 
             # Once training is completed, we want to test the performance of our model
             # To ensure we actually use the best model, we load the best model we just stored during training
@@ -423,7 +384,7 @@ class ExperimentSuite:
                 else:
                     quartiles_indices = None
 
-                if return_att_scores is False:
+                if return_en_scores is False:
                     # The following section only retrieves performance metrics for the model tested on the test split
                     print('Performing model evaluation on the test split without extraction of energy scores and query '
                           'embeddings!', flush=True)
@@ -432,7 +393,7 @@ class ExperimentSuite:
                                           transformer=self._transformer,
                                           quartiles_indices=quartiles_indices,
                                           individual=individual,
-                                          return_att_scores=model_args['train_kwargs']['return_att_scores'],
+                                          return_en_scores=model_args['train_kwargs']['return_en_scores'],
                                           att_module=self._att_module)
 
                     print(f'Test loss: {test_scores["loss"]}', flush=True)
@@ -478,7 +439,7 @@ class ExperimentSuite:
                                          transformer=self._transformer,
                                          quartiles_indices=quartiles_indices,
                                          individual=individual,
-                                         return_att_scores=return_att_scores,
+                                         return_en_scores=return_en_scores,
                                          path_scores=path_scores,
                                          att_module=self._att_module)
 
@@ -498,18 +459,6 @@ class ExperimentSuite:
                                          individual=individual,
                                          epoch=epoch)
 
-                    file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries.pkl'
-                    path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
-                    counter = 1
-                    while True:
-                        if os.path.isfile(path_queries):
-                            file_name_queries = f'{self._model}_{self._att_module}_{self.seed}_queries{counter}.pkl'
-                            path_queries = os.path.join(path_res_dir, 'scores', file_name_queries)
-                            counter += 1
-                        else:
-                            with open(path_queries, 'wb') as f:
-                                pickle.dump(queries_epochs, f)
-                            break
         else:
             print(save_name)
             # Once training is completed, we want to test the performance of our model
@@ -521,8 +470,8 @@ class ExperimentSuite:
                 model_args: Dict[str, Union[str, Dict[str, Union[str, int, List[Union[int, float]]]]]],
                 X: List[np.array],
                 Y: List[np.array],
-                path_res_dir: str,
-                get_hierarchical_energy: bool = False):
+                path_res_dir: str):
+
         """
         This function uses an already trained model to predict on a given dataset.
 
@@ -548,7 +497,7 @@ class ExperimentSuite:
         # Retrieve train kwargs
         doc_max_len = model_args['train_kwargs']['doc_max_len']
         batch_size = model_args['train_kwargs']['batch_size']
-        return_att_scores = model_args['train_kwargs']['return_att_scores']
+        return_en_scores = model_args['train_kwargs']['return_en_scores']
 
         # Check for required computation of performance metrics for quartiles and/or each individual labels
         quartiles = model_args['train_kwargs']['quartiles']
@@ -608,10 +557,9 @@ class ExperimentSuite:
                               transformer=self._transformer,
                               quartiles_indices=quartiles_indices,
                               individual=individual,
-                              return_att_scores=return_att_scores,
+                              return_en_scores=return_en_scores,
                               att_module=self._att_module,
-                              path_scores=path_scores,
-                              get_hierarchical_energy=get_hierarchical_energy)
+                              path_scores=path_scores)
 
         print(f'Test loss: {test_scores["loss"]}', flush=True)
         store_scores(scores=test_scores,
@@ -625,9 +573,6 @@ class ExperimentSuite:
                      quartiles=quartiles,
                      individual=individual,
                      epoch=0)
-
-        # The following section retrieves and stores energy scores and query embeddings
-        # across train, val, test split.
 
 
 def load_trainedModel_cpu(model_path, model, model_name, device=torch.device('cpu')):
@@ -1006,7 +951,7 @@ parser.add_argument('-pt', '--parameter_tuning',
 parser.add_argument('-lr', '--learning_rate',
                     type=float,
                     help='Set learning rate for optimizer.')
-parser.add_argument('-as', '--return_att_scores',
+parser.add_argument('-as', '--return_en_scores',
                     type=parse_boolean,
                     help='Flag indicating to return attention and energy scores.')
 parser.add_argument('-tr', '--training',
@@ -1069,7 +1014,7 @@ def main():
                                        embedding_scaling=args.embedding_scaling,
                                        parameter_tuning=args.parameter_tuning,
                                        learning_rate=args.learning_rate,
-                                       return_att_scores=args.return_att_scores)
+                                       return_en_scores=args.return_en_scores)
 
     X, Y = exp.fetch_data()
 

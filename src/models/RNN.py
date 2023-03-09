@@ -4,7 +4,7 @@ Long Short-term Memory Model (LSTM) or the Gated Recurrent Unit Model (GRU) for 
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/24/2022
+    @last modified: 03/07/2023
 """
 
 # built-in libraries
@@ -150,8 +150,7 @@ class RNN(nn.Module):
         self.output_layer.bias.data.fill_(0.01)
 
     def forward(self, docs: torch.Tensor,
-                return_att_scores: bool = False,
-                get_hierarchical_energy: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+                return_att_scores: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of RNN models
 
@@ -172,6 +171,7 @@ class RNN(nn.Module):
         # Creates a mask for words with boolean expression: True=word; False=padding
         mask_words = (docs != 0)
         words_per_line = mask_words.sum(-1)  # checks number of words for each line
+        words_per_line = words_per_line.int()
         max_words = words_per_line.max()  # gets maximum number of words per doc
 
         # torch.unsqueeze required to reorder True/False mask to have the same shape as output of embedding layer
@@ -203,36 +203,14 @@ class RNN(nn.Module):
                 C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
-            elif self._att_module == 'random':
+            else:  # label-attention
                 H = self.dropout_layer(H)
                 C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'pretrained':
-                H = self.dropout_layer(H)
-                C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'hierarchical_random':
-                H = self.dropout_layer(H)
-                C, E, Q = self.attention_layer(H=H.permute(0, 2, 1), get_hierarchical_energy=get_hierarchical_energy)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'hierarchical_pretrained':
-                H = self.dropout_layer(H)
-                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1), get_hierarchical_energy=get_hierarchical_energy)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
         if return_att_scores:
-            if get_hierarchical_energy:
-                E_new = E
-            else:
-                E_new = torch.zeros((E.size()[0], E.size()[1], 3000))
-                E_new[:, :, :E.size()[2]] = E
-                E_new = E_new.to(device)
-            if self._att_module == 'random':
-                return logits, E_new
-            elif self._att_module == 'pretrained':
-                return logits, E_new, Q_dh
-            elif self._att_module == 'hierarchical_random':
-                return logits, E_new, Q
-            elif self._att_module == 'hierarchical_pretrained':
-                return logits, E_new, Q_cat_dh, Q_dh
-        return logits, C
+            E_new = torch.zeros((E.size()[0], E.size()[1], 3000))
+            E_new[:, :, :E.size()[2]] = E
+            E_new = E_new.to(device)
+            return logits, E_new
+        return logits

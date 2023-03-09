@@ -108,7 +108,7 @@ class HierarchicalRandomAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, K: torch.Tensor, V: torch.Tensor, get_hierarchical_energy: bool = False) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
 
         """
         Forward pass of hierarchical target attention mechanism.
@@ -127,9 +127,9 @@ class HierarchicalRandomAttention(nn.Module):
         C : torch.Tensor
             Context matrix C - adjusted document embeddings
             where c_i represents the context vector for the i-th label in the label space
-        A : torch.Tensor
-            Attention weight matrix A containing the attention scores
-            where a_i represents the attention weight for the i-th label in the label space
+        E : torch.Tensor
+            Energy score matrix E containing the energy scores
+            where e_i represents the attention weight for the i-th label in the label space
 
         """
         if self._multihead:
@@ -158,9 +158,6 @@ class HierarchicalRandomAttention(nn.Module):
             return C2
         else:
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
-            Q2_init = Q2.detach().clone()
-            if get_hierarchical_energy:
-                E_Q2K = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             if self._scale:
                 E1 = self.Q1.weight.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
@@ -168,8 +165,6 @@ class HierarchicalRandomAttention(nn.Module):
 
             A1 = F.softmax(input=E1, dim=-1)
             C1 = A1.matmul(V)
-            if get_hierarchical_energy:
-                E_C1K = C1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             # output shape: [batch_size, number_categories, latent_doc_dim]
             # Map context vector of the ith category to each code belong to the same category
 
@@ -186,11 +181,7 @@ class HierarchicalRandomAttention(nn.Module):
             # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
             C2 = A2.matmul(V)
             # label Q and cat Q
-            if get_hierarchical_energy:
-                E = [E2, E_Q2K, E_C1K, C2, C1, Q2_init]
-                #E = [C2, C1, Q2_init]
-                return C2, E, torch.mean(Q2, dim=0)
-        return C2, E2, torch.mean(Q2, dim=0)
+        return C2, E2
 
 
 class HierarchicalPretrainedAttention(nn.Module):
@@ -289,7 +280,7 @@ class HierarchicalPretrainedAttention(nn.Module):
             nn.init.xavier_uniform_(self.W_q2.weight)
             self.W_q2.bias.data.fill_(0.01)
 
-    def forward(self, K: torch.Tensor, V: torch.Tensor, get_hierarchical_energy: bool = False) -> Tuple[torch.Tensor]:
+    def forward(self, K: torch.Tensor, V: torch.Tensor) -> Tuple[torch.Tensor]:
 
         """
         Forward pass of hierarchical target attention mechanism.
@@ -309,9 +300,9 @@ class HierarchicalPretrainedAttention(nn.Module):
         C : torch.Tensor
             Context matrix C - adjusted document embeddings
             where c_i represents the context vector for the i-th label in the label space
-        A : torch.Tensor
-            Attention weight matrix A containing the attention scores
-            where a_i represents the attention weight for the i-th label in the label space
+        E : torch.Tensor
+            Energy score matrix E containing the energy scores
+            where e_i represents the attention weight for the i-th label in the label space
 
         """
         if self._multihead:
@@ -331,8 +322,6 @@ class HierarchicalPretrainedAttention(nn.Module):
             C1 = torch.bmm(A1, V)
 
             Q2[:, torch.arange(len(self._code2cat_map)), :] += C1[:, self._code2cat_map, :]
-
-
             if self._scale:
                 E2 = torch.bmm(Q2, K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
             else:
@@ -344,10 +333,6 @@ class HierarchicalPretrainedAttention(nn.Module):
             Q2 = torch.unsqueeze(self.Q2.weight, dim=0).repeat(K.size()[0], 1, 1)
             Q1 = self._mapping_layer(self.Q1.weight.permute(1, 0)).permute(1, 0)
             Q2 = self._mapping_layer(Q2.permute(0, 2, 1)).permute(0, 2, 1)
-            Q2_init = Q2.detach().clone()
-
-            if get_hierarchical_energy:
-                E_Q2K = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
 
             if self._scale:
                 E1 = Q1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
@@ -356,13 +341,9 @@ class HierarchicalPretrainedAttention(nn.Module):
             A1 = F.softmax(input=E1, dim=-1)
             C1 = A1.matmul(V)
 
-            if get_hierarchical_energy:
-                E_C1K = C1.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
-
             # Map context vector of the ith category to each code belong to the same category.
 
             Q2[:, torch.arange(len(self._code2cat_map)), :] += C1[:, self._code2cat_map, :]
-
 
             if self._scale:
                 E2 = Q2.matmul(K.permute(0, 2, 1)) / np.sqrt(self._latent_doc_dim)
@@ -372,13 +353,8 @@ class HierarchicalPretrainedAttention(nn.Module):
 
             # Compute attention weighted document embeddings - context matrix
             # Where c_i represents the document context vector for the i-th label in the label space
-            # C ∈ R^nxd, where n: number of labels and d: latent dimension of CNN/LSTM model
+            # C ∈ R^nxd, where n: number of labels and d: latent dimension of CLF model
             C2 = A2.matmul(V)
 
-            if get_hierarchical_energy:
-                E = [E2, E_Q2K, E_C1K, C2, C1, Q2_init]
-                return C2, E, Q1, torch.mean(Q2, dim=0)
+        return C2, E2
 
-            # Self.Q_progress contains the following query embeddings
-            # mapped label Q, init label Q, mapped cat Q, init cat Q
-        return C2, E2, Q1, torch.mean(Q2, dim=0)

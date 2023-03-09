@@ -1,3 +1,12 @@
+"""
+The file contains the code for the implementation of the multi-head attention mechanism
+(source: https://d2l.ai/chapter_attention-mechanisms/multihead-attention.html).
+    @author: Christoph Metzner
+    @email: cmetzner@vols.utk.edu
+    @created: 06/01/2022
+    @last modified: 03/07/2023
+
+"""
 # installed libraries
 import torch
 

@@ -3,7 +3,7 @@ Source code that contains a basic convolution neural network architecture with t
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/20/2022
+    @last modified: 03/07/2023
 """
 
 # built-in libraries
@@ -92,7 +92,7 @@ class CNN(nn.Module):
         # Check to make sure window_sizes has same number of entries as num_filters
         if len(self._window_sizes) != len(self._n_filters):
             raise Exception("window_sizes must be same length as num_filters")
-
+        # We found this to be effective and improves performance
         token_embedding_matrix -= token_embedding_matrix.mean()
         token_embedding_matrix /= (token_embedding_matrix.std() * self._embedding_scaling)
 
@@ -138,8 +138,7 @@ class CNN(nn.Module):
         self.output_layer.bias.data.fill_(0.01)
 
     def forward(self, docs: torch.Tensor,
-                return_att_scores: bool = False,
-                get_hierarchical_energy: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+                return_att_scores: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of CNN model
 
@@ -199,42 +198,24 @@ class CNN(nn.Module):
                 logits = self.output_layer(H.permute(0, 2, 1)).permute(0, 2, 1)  # [batch_size, num_labels, sequence_len]
                 logits = F.adaptive_max_pool1d(logits, 1)  # [batch_size, num_labels, 1]
                 logits = torch.flatten(logits, start_dim=1)  # [batch_size, num_labels]
-
-            elif self._att_module == 'target':
+            elif self._att_module == 'target':  # target-attention
                 # target attention uses a one query vector to learn a single latent document representation
                 C, E = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
+            else:  # Label-attention
+                C, E = self.attention_layer(H=H)
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
 
-            elif self._att_module == 'random':
-                C, E = self.attention_layer(H=H)  # [batch_size, num_labels, hidden_dim]
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'pretrained':
-                C, E, Q_dh = self.attention_layer(H=H)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'hierarchical_random':
-                C, E, Q = self.attention_layer(H=H, get_hierarchical_energy=get_hierarchical_energy)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'hierarchical_pretrained':
-                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H, get_hierarchical_energy=get_hierarchical_energy)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-
-        if return_att_scores:
-            if get_hierarchical_energy:
-                E_new = E
-            else:
-                E_new = torch.zeros((E[0].size()[0], E[0].size()[1], 3000))
-                E_new[:, :, :E[0].size()[2]] = E[0]
-                E_new = E_new.to(device)
-            if self._att_module == 'random':
-                return logits, E_new
-            elif self._att_module == 'pretrained':
-                return logits, E_new, Q_dh
-            elif self._att_module == 'hierarchical_random':
-                return logits, E_new, Q
-            elif self._att_module == 'hierarchical_pretrained':
-                return logits, E_new, Q_cat_dh, Q_dh
-            elif self._att_module == 'target':
-                return logits, E_new
-
-        return logits, C
+        if return_att_scores:  # target-attention and all label-attention mechanisms
+            # If documents in curent batch are smaller than maximum length we reduce the matrix to the size of the
+            # longest document in the batch
+            # This practice, however, causes issues using multiple GPUs n > 1 and pytorch implementation of
+            # DataParallel. In particular, DataParallel tries to concatenate the split batch tensors; different document
+            # lengths causes size mismatch --> error
+            # To avoid, we create a new tensor and set this tensor equal to the energy score tensor
+            E_new = torch.zeros((E.size()[0], E.size()[1], 3000))
+            E_new[:, :, :E.size()[2]] = E
+            E_new = E_new.to(device)
+            return logits, E_new
+        return logits  # baseline method has no energy scores

@@ -3,7 +3,7 @@ Source code that contains a basic convolution neural network architecture with t
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/14/2022
-    @last modified: 05/24/2022
+    @last modified: 03/07/2023
 """
 
 # built-in libraries
@@ -84,8 +84,6 @@ class TransformerModel(nn.Module):
         self._embedding_scaling = embedding_scaling
 
         if self._model_name == 'ClinicalLongformer':
-            #self.transformer_model = AutoModel.from_pretrained('/gpfs/alpine/world-shared/med106/metznerc/attention_mechanisms/src/models/Clinical-Longformer/')
-            #self.transformer_model = AutoModel.from_pretrained('/home/u0z/attention_mechanisms/src/models/Clinical-Longformer/')
             self.transformer_model = AutoModel.from_pretrained("/Users/cmetzner/Desktop/Study/PhD/research/ORNL/Biostatistics and Multiscale System Modeling/"
                                                                "attention_mechanisms/src/models/Clinical-Longformer")
             self._latent_doc_dim = 768
@@ -116,9 +114,7 @@ class TransformerModel(nn.Module):
 
     def forward(self,
                 input_ids: torch.Tensor,
-                attention_mask: torch.Tensor,
-                return_att_scores: bool=False,
-                get_hierarchical_energy: bool=False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
+                return_en_scores: bool=False) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Forward pass of transformer model
 
@@ -126,11 +122,7 @@ class TransformerModel(nn.Module):
         ----------
         input_ids : torch.Tensor
             Token indices, numerical representation of tokens building the sequences that are used as input by the model
-        token_type_ids : torch.Tensor
-            Segment token indices to indicate first and second portions of the inputs. Indices are selected in [0, 1]
-        attention_mask : torch.Tensor
-            This mask indicates the model which tokens should paid attention to or not. Will ignore padding tokens.
-        return_att_scores : bool; default=False
+        return_en_scores : bool; default=False
             Flag indicating to return attention and energy scores
 
         Returns
@@ -140,12 +132,12 @@ class TransformerModel(nn.Module):
         """
         # Get latent document representation
         H = self.transformer_model(input_ids=input_ids,
-                                   attention_mask=attention_mask,
                                    return_dict=True,
                                    output_hidden_states=True)
         # Retrieve latent document representation of last layer in transformer model
         H = H['hidden_states'][-1]
         H = self.dropout_layer(H)  # [batch_size, sequence_len == 4096, hidden_dim == 768]
+
         if self._multihead:
             C = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
             logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
@@ -161,32 +153,13 @@ class TransformerModel(nn.Module):
                 C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
-            elif self._att_module == 'random':
+            else:
                 C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'pretrained':
-                C, E, Q_dh = self.attention_layer(H=H.permute(0, 2, 1))
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'hierarchical_random':
-                C, E, Q = self.attention_layer(H=H.permute(0, 2, 1), get_hierarchical_energy=get_hierarchical_energy)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
-            elif self._att_module == 'hierarchical_pretrained':
-                C, E, Q_cat_dh, Q_dh = self.attention_layer(H=H.permute(0, 2, 1), get_hierarchical_energy=get_hierarchical_energy)
-                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
 
-        if return_att_scores:
-            if get_hierarchical_energy:
-                E_new = E
-            else:
-                E_new = torch.zeros((E.size()[0], E.size()[1], 4096))
-                E_new[:, :, :E.size()[2]] = E
-                E_new = E_new.to(device)
-            if self._att_module == 'random':
-                return logits, E_new
-            elif self._att_module == 'pretrained':
-                return logits, E_new, Q_dh
-            elif self._att_module == 'hierarchical_random':
-                return logits, E_new, Q
-            elif self._att_module == 'hierarchical_pretrained':
-                return logits, E_new, Q_cat_dh, Q_dh
-        return logits, C
+        if return_en_scores:
+            E_new = torch.zeros((E.size()[0], E.size()[1], 4096))  # 4096 - max document length for CLF
+            E_new[:, :, :E.size()[2]] = E
+            E_new = E_new.to(device)
+            return logits, E_new
+        return logits

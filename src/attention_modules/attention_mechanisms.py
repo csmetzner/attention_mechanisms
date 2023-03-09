@@ -4,17 +4,15 @@ are written to modularize the different variations.
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/03/2022
-    @last modified: 05/20/2022
+    @last modified: 03/07/2023
 
 Attention mechanisms:
-    - Self-attention (implemented, tested)
     - Target-attention (implemented, tested)
     - Label-attention (implemented, tested)
     - Hierarchical-attention
         - Target attention (implemented, tested)
         - Label attention (implemented, tested)
     - Multi-head attention (implemented, tested; https://d2l.ai/chapter_attention-mechanisms/multihead-attention.html)
-    - Alternating attention (implemented, tested)
 """
 # built-in libraries
 from typing import Tuple, Union, List
@@ -171,7 +169,7 @@ class Attention(nn.Module):
                                                    multihead=self._multihead,
                                                    num_heads=self._num_heads)
 
-    def forward(self, H: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, H: torch.Tensor, get_hierarchical_energy: bool = False) -> Tuple[torch.Tensor]:
         """
         Forward pass of general attention mechanism class.
 
@@ -196,20 +194,7 @@ class Attention(nn.Module):
             C = self.MH_output(C)
             return C
         else:
-            if self._att_module == 'random':
-                C, E = self.attention_layer(K=K, V=V)
-                return C, E
-            elif self._att_module == 'pretrained':
-                C, E, Q_dh = self.attention_layer(K=K, V=V)
-                return C, E, Q_dh
-            elif self._att_module == 'hierarchical_random':
-                C, E, Q = self.attention_layer(K=K, V=V)
-                return C, E, Q
-            elif self._att_module == 'hierarchical_pretrained':
-                C, E, Q_cat_dh, Q_dh = self.attention_layer(K=K, V=V)
-                return C, E, Q_cat_dh, Q_dh
-            elif self._att_module == 'target':
-                C = self.attention_layer(K=K, V=V)
-                return C
+            C, E = self.attention_layer(K=K, V=V)
+            return C, E
 
 
