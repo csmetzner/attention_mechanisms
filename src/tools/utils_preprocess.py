@@ -3,7 +3,7 @@ This file contains source code for utility functions for preprocessing the raw d
     @author: Christoph Metzner
     @email: cmetzner@vols.utk.edu
     @created: 05/06/2022
-    @last modified: 05/24/2022
+    @last modified: 03/23/2023
 """
 
 SEED = 42
@@ -12,7 +12,6 @@ import os
 import re
 import pickle
 import warnings
-from itertools import groupby
 warnings.filterwarnings("ignore")
 from typing import List
 
@@ -66,8 +65,7 @@ def rel2abs(x: str, flag_proc: bool = True) -> str:
 
 
 def preproc_clinical_notes(df_notes: pd.DataFrame,
-                           path_data_proc: str,
-                           caml_clean: bool = True) -> pd.DataFrame:
+                           path_data_proc: str) -> pd.DataFrame:
     """
     Function that loads table NOTEEVENTS.csv of the MIMIC-III. This table contains all available clinical notes
     associated with each unique hospital admission id. The clinical notes are filtered for the discharge summaries. The
@@ -79,11 +77,6 @@ def preproc_clinical_notes(df_notes: pd.DataFrame,
         raw clinical notes from category 'Discharge summary'
     path_data_proc : str
         Path to directory where processed text should be stored
-    caml_clean : bool; default=True
-        Flag indicating type of text preprocessing; if set to True script follows cleaning procedure described in
-        Mullenbach et al. 2018. If false, procedure proposed by Gao et al. 2019 is followed.
-    tokenize : bool; default=True
-        Flag indicating if text should be tokenized.
 
     Returns
     -------
@@ -91,25 +84,23 @@ def preproc_clinical_notes(df_notes: pd.DataFrame,
         Dataframe that contains the concatenated clinical notes per hospital admission id.
 
     """
-    # merge reports and addendums from same patient/ham_id
+    # Merge reports and addendums from same patient/ham_id
     df_notes['TEXT'] = df_notes.groupby(['HADM_ID'])['TEXT'].transform(lambda x: '\n '.join(x))
     df_notes = df_notes.drop_duplicates(['HADM_ID']).copy()
 
     # Cleaning of clinical notes
-    # df_notes['text'] = df_notes.apply(lambda x: clean_text(x.text), axis=1)
-    df_notes['TOKENS'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT),
-                                                                               caml_clean=caml_clean,
-                                                                               tokenize=True), axis=1)
-    df_notes['TEXT'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT),
-                                                                             caml_clean=caml_clean,
-                                                                             tokenize=False), axis=1)
+    # Used for CNN and both RNNs
+    df_notes['TOKENS'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT), tokenize=True), axis=1)
+    # Used for the HuggingFace based Clinical Longformer
+    df_notes['TEXT'] = df_notes.progress_apply(lambda x: clean_tokenize_text(str(x.TEXT), tokenize=False), axis=1)
+
     # Store dataframe
     df_notes.to_pickle(os.path.join(path_data_proc, 'CLEANED_NOTES.pkl'))
 
     return df_notes
 
 
-def clean_tokenize_text(text: str, caml_clean: bool = True, tokenize: bool = True) -> str:
+def clean_tokenize_text(text: str, tokenize: bool = True) -> str:
     # define punctuations
     '''
     Patterns to remove
@@ -126,42 +117,15 @@ def clean_tokenize_text(text: str, caml_clean: bool = True, tokenize: bool = Tru
     [**Telephone **]
     [** **]
     '''
-    # 1. Remove C
+    # 1. Remove identifiers
     text = re.sub('\[\*\*.*?\*\*\]', 'deidentified', text)  # remove identifiers
-
-    if caml_clean:
-        tokens = [t.lower() for t in word_tokenize(text) if not t.isnumeric()]
-        if tokenize:
-            return tokens
-        text = ' '.join(tokens)
-        return text
-    else:
-        # Preprocessing procedure follows closely Gao et al. 2020 - Using case-level context to classify cancer pathology reports
-        # 2. Lowercase
-        text = text.lower()
-        # 3. Replace excessive whitespace, but retain line breaks (tabs)
-        text = text.replace('\n', ' ')
-        text = re.sub(' +', ' ', text)  # remove excessive whitespace
-        # 4. Remove periods in abbreviations
-        text = re.sub(r'(?<!\w)([a-z])\.', r'\1', text)
-        # 5. Remove periods in floats by replacing all instances of floats with the string 'floattoken'
-        text = re.sub('[0-9]+\.[0-9]+', ' floattoken ', text)
-        # 6. Replace alls integers higher than 100 with the string "largeinttoken"
-        text = re.sub('[0-9][0-9][0-9]+', ' largeinttoken ', text)
-        # 7. If the same non-alphanumeric character appears consecutively more than once, replace it with a single copy of that character
-        text = re.sub(r'([\W_])\1+', r'\1', text)
-        # 8. Remove underscore
-        text = re.sub("_", ' ', text)
-
-        punc = ['.', '?', '!', ',', '#', ':', ';', '(', ')', '%', '/', '-', '+', '=', '&', '_']
-
-        for p in punc:
-            text = re.sub("\%s{2,}" % p, '%s' % p, text)
-            text = re.sub('\%s' % p, ' %s ' % p, text)
-        if tokenize:
-            tokens = word_tokenize(text)
-            return tokens
-        return text
+    # 2. lowercase words and remove numeric tokens
+    tokens = [t.lower() for t in word_tokenize(text) if not t.isnumeric()]
+    if tokenize:
+        return tokens
+    # 3. Huggingface tokenizer expects a string to be fed for tokenization
+    text = ' '.join(tokens)
+    return text
 
 
 def get_class_type(classes_list: List[str], code: bool=True) -> List[List[str]]:
