@@ -22,8 +22,7 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 * hp5y 3.7.0
 
 ** Note: ** These are the versions last tested, but earlier version may work as well.
-│
-├──
+
 ## Repository Structure
 ```
 ├── data
@@ -79,6 +78,21 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 ├── Pipfile.lock
 └── README.md
 ```
+
+## Getting Started
+1. Clone this repo (for help see this [tutorial](https://help.github.com/articles/cloning-a-repository/)).
+2. The raw data were retrieved from https://physionet.org/content/mimiciii/1.4/ - the licence needs to be requested
+
+## Replicating the Results and Run the Experiments
+### Preprocessing of Raw Data
+1. Move the raw data files with the names *NOTEEVENTS.csv*, *DIAGNOSES_ICD.csv.gz*, and *PROCEDURES_ICD.csv.gz to the /root/data/raw/
+2. Run all cells of the notebook **notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb**
+
+### Running a model ###
+For example, to run a model using a CNN and random label-attention on the MIMIC-III-50 subset you would do the following:
+python -d Mimic50 -m CNN -am random -en first_model -cq True -ci True -as True 
+The line above would create a directory named "results_first_model" containing sub-directories containing models, predictions, and scores. Models contains the models ran by you, predictions contains the sigmoid probabilities, and scores will contain the performance scores overall, performance scores broken down by quartiles (i.e,. -cq True), and performance scores for each individual label (i.e., -ci True). The directory scores will contain another directory called "analysis" containing the raw energy scores (i.e., -as True).
+
 
 ## Project members
 
