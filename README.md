@@ -25,7 +25,7 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 
 ## Repository Structure
 ```
-|-- data
+|--- data
 ```
 
 ## Project members
