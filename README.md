@@ -21,7 +21,7 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 * torchtext 0.14.0
 * hp5y 3.7.0
 
-** Note: ** These are the versions last tested, but earlier version may work as well.
+Note: These are the versions last tested, but earlier version may work as well.
 
 ## Repository Structure
 ```
