@@ -38,27 +38,46 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 │
 ├── notebooks
 │   ├── notebook_discussion.ipynb                 <- Contains code and results of analysis in discussion sections B and D.
-│   ├── notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb      <- Contains code to preprocess the raw MIMIC-III clinical documents and ICD-9 code descriptions
-│   └── notebook_results_Mimic_III.ipynb          <- Contains code used to visualize results
+│   ├── notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb      <- Contains code to preprocess the raw MIMIC-III clinical documents and ICD-9 code descriptions.
+│   └── notebook_results_Mimic_III.ipynb          <- Contains code used to visualize results.
 │
 ├── src
-│   ├── attention_modules
-│   ├── config_files
-│   ├── models
-│   ├── tools
+│   ├── attention_modules                         <- Source code for attention mechanisms.
+│       ├── attention_mechanisms.py               <- Script that functions as a "middle-man" between the actual attention mechanisms and the source code for the models in the directory "models".
+│       ├── hierarchical_attention.py             <- Contains source code for the hierarchical pretrained / random label-attention mechanism.
+│       ├── multihead_attention.py                <- Contains source code for the multi-head attention mechanism retrieved from https://d2l.ai/chapter_attention-mechanisms/multihead-attention.html.
+│       ├── pretrained_attention.py               <- Contains source code for the pretrained label-attention mechanism.
+│       ├── random_attention.py                   <- Contains source code for the random label-attention mechanism.
+│       ├── target_attention.py                   <- Contains source code for target-attention mechanism.
+│       └── __init__.py
+│   ├── config_files                              <- Contains yaml-based config files for each model; each file contains model_kwargs .and train_kwargs; model_kwargs determine the design of the model architecture (e.g., size of hidden dimension) and train_kwargs determine the hyperparameters for the training (e.g., learning rate or batch size).
+│       ├── BiGRU_config.yml                      
+│       ├── BiLSTM_config.yml
+│       ├── CLF_config.yml
+│       ├── CNN_config.yml
+│       └── datasets_config.yml                   <- Contains information about the label spacD-9 categories) and maximal document length. 
+│   ├── models                                    <- Contains source code for the models / text-encoder architectures used in the study.
+│       ├── CNN.py
+│       ├── RNN.py                                <- Contains source code for both the BiLSTM and BiGRU text-encoder architectures.
+│       ├── Transformers.py                       <- Contains source code for the HuggingFace Transformer **"Clinical Longformer"**; If you want to run this model you need to first download the model from https://huggingface.co/yikuan8/Clinical-Longformer, then change the path in line 87 to point to the location of the donwloaded directory containing the source code, vocabulary, and word embeddings for the Clinical Longformer.
+│       └── __init__.py
+│   ├── tools                                     <- Contains source code to run the experiments (training.py, dataloaders.py, performance_metrics.py, utils.py), for the analysis (analysis_energyscores.py, print_results.py), and for preprocessing the raw data (utils_preprocess.py).
+│       ├── analysis_energyscores.py              <- Contains analysis to retrieve phrase-level extraction and post-process energy scores.
+│       ├── dataloaders.py                        <- Contains source code for pytorch dataloader object.
+│       ├── performance_metrics.py                <- Contains source code for all performance metrics used in the study (F1-scores, precision@k, AUC).
+│       ├── print_results.py                      <- Contains source code that helps printing results on terminal.
+│       ├── training.py                           <- Contains source code controlling the training procedure.
+│       ├── utils.py                              <- Contains source code for generating word embedding matrices and help argparse command line arguments.
+│       ├── utils_preprocess.py                   <- Contains source code to preprocess the clinical notes - scripts are called by the notebook * notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb *
+│       └── __init__.py
 │   ├── .gitkeep
 │   ├── __init__.py
-│   ├── main.py
-│   ├── print_results.py
-│   └──   
+│   └── main.py                                   <- Contains source code to run the model experiments   
 │
 ├── .gitignore
 ├── Pipfile
 ├── Pipfile.lock
 └── README.md
-
-  
-
 ```
 
 ## Project members
