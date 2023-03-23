@@ -91,7 +91,7 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 ### Running a model ###
 For example, to run a model using a CNN and random label-attention on the MIMIC-III-50 subset you would do the following:
 
-python -d Mimic50 -m CNN -am random -en first_model -cq True -ci True -as True 
+`python -d Mimic50 -m CNN -am random -en first_model -cq True -ci True -as True` 
 
 The line above would create a directory named "results_first_model" containing sub-directories containing models, predictions, and scores. Models contains the models ran by you, predictions contains the sigmoid probabilities, and scores will contain the performance scores overall, performance scores broken down by quartiles (i.e,. -cq True), and performance scores for each individual label (i.e., -ci True). The directory scores will contain another directory called "analysis" containing the raw energy scores (i.e., -as True).
 
