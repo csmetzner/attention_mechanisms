@@ -22,10 +22,44 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 * hp5y 3.7.0
 
 ** Note: ** These are the versions last tested, but earlier version may work as well.
-
+│
+├──
 ## Repository Structure
 ```
-|--- data
+├── data
+│   ├── raw                                       <- The original data downloaded from https://physionet.org/content/mimiciii/1.4/
+│   ├── processed                                 <- The processed data used to train and evaluate the models.
+│   │   └── hadm_ids                              <- Hospital admission ids defining the training, testing, and validation splits for MIMIC-III-Full and MIMIC-III-50 retrieved from https://github.com/jamesmullenbach/caml-mimic/tree/master/mimicdata/mimic3.
+│   └── external                                  <- External data describing ICD-9 codes and their descriptions.
+│       ├── CMS32_DESC_LONG_SHORT_DX.xlsx
+│       ├── CMS32_DESC_LONG_SHORT_SG.xlsx
+│       ├── D_ICD_DIAGNOSES.csv
+│       └── D_ICD_PORCEDURES.csv
+│
+├── notebooks
+│   ├── notebook_discussion.ipynb                 <- Contains code and results of analysis in discussion sections B and D.
+│   ├── notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb      <- Contains code to preprocess the raw MIMIC-III clinical documents and ICD-9 code descriptions
+│   └── notebook_results_Mimic_III.ipynb          <- Contains code used to visualize results
+│
+├── src
+│   ├── attention_modules
+│   ├── config_files
+│   ├── models
+│   ├── tools
+│   ├── .gitkeep
+│   ├── __init__.py
+│   ├── main.py
+│   ├── print_results.py
+│   └──   
+│
+│
+│
+│
+│
+│
+
+  
+
 ```
 
 ## Project members
