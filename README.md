@@ -85,8 +85,8 @@ All models and experiments were implemented in Python 3.8 and PyTorch 1.12.
 
 ## Replicating the Results and Run the Experiments
 ### Preprocessing of Raw Data
-1. Move the raw data files with the names *NOTEEVENTS.csv*, *DIAGNOSES_ICD.csv.gz*, and *PROCEDURES_ICD.csv.gz to the /root/data/raw/
-2. Run all cells of the notebook **notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb**
+1. Move the raw data files with the names **NOTEEVENTS.csv**, **DIAGNOSES_ICD.csv.gz**, and **PROCEDURES_ICD.csv.gz** to the /root/data/raw/
+2. Run all cells of the notebook `notebook_preprocessing_MIMIC_III_and_code_descriptions.ipynb`
 
 ### Running a model ###
 For example, to run a model using a CNN and random label-attention on the MIMIC-III-50 subset you would do the following:
