@@ -189,7 +189,7 @@ class ExperimentSuite:
         # Load pre-trained label and category embedding matrices, and label2category-mapping
         # Load mapping if hierarchical attention:
         if att_module.split('_')[0] == 'hierarchical':
-            with open(os.path.join(path_data, 'code_embeddings', f'embedding_matrix_{dataset}_mapping.pkl'), 'rb') as f:
+            with open(os.path.join(path_data, f'data_{dataset}', 'code_embeddings', f'embedding_matrix_{dataset}_mapping.pkl'), 'rb') as f:
                 code2cat_map = pickle.load(f)
             self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
 
@@ -199,10 +199,10 @@ class ExperimentSuite:
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
 
         if att_module == 'hierarchical_pretrained':
-            with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
+            with open(os.path.join(path_data, f'data_{dataset}', 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
-            with open(os.path.join(path_data, 'code_embeddings', f'cat_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
+            with open(os.path.join(path_data, f'data_{dataset}', 'code_embeddings', f'cat_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 cat_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['cat_embedding_matrix'] = cat_embedding_matrix
 
@@ -379,7 +379,7 @@ class ExperimentSuite:
                 # If true --> compute performance metrics for quartiles --> load file that indicates quartiles
                 if quartiles:
                     with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}',
-                                           f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                                           f'l_codes_quartiles_{self._dataset}.pkl'), 'rb') as f:
                         quartiles_indices = pickle.load(f)
                 else:
                     quartiles_indices = None
@@ -547,7 +547,7 @@ class ExperimentSuite:
                                    f'{self._model}_{self._att_module}_{self.seed}')
         if quartiles:
             with open(os.path.join(root, 'data', 'processed', f'data_{self._dataset}',
-                                   f'l_codes_quantiles_{self._dataset}.pkl'), 'rb') as f:
+                                   f'l_codes_quartiles_{self._dataset}.pkl'), 'rb') as f:
                 quartiles_indices = pickle.load(f)
         else:
             quartiles_indices = None
