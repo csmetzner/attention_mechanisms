@@ -76,7 +76,8 @@ Note: These are the versions last tested, but earlier version may work as well.
 ├── .gitignore
 ├── Pipfile
 ├── Pipfile.lock
-└── README.md
+├── README.md
+└── requirements.txt
 ```
 
 ## Getting Started
