@@ -26,6 +26,7 @@ Note: These are the versions last tested, but earlier version may work as well.
 ## Repository Structure
 ```
 ├── data
+│   ├── Mimic50_top_k_phrases_filtered.xlsx       <- Excel sheet containing the top 5 most-relevant phrases per ICD-9 code for all tested models.
 │   ├── raw                                       <- The original data downloaded from https://physionet.org/content/mimiciii/1.4/
 │   ├── processed                                 <- The processed data used to train and evaluate the models.
 │   │   └── hadm_ids                              <- Hospital admission ids defining the training, testing, and validation splits for MIMIC-III-Full and MIMIC-III-50 retrieved from https://github.com/jamesmullenbach/caml-mimic/tree/master/mimicdata/mimic3.
