@@ -26,7 +26,7 @@ import torch.nn.functional as F
 # custom libraries
 from attention_modules.multihead_attention import transpose_output
 from attention_modules.random_attention import RandomAttention
-from attention_modules.pretrained_attention import PretrainedAttention
+from attention_modules.pretrained_attention import PretrainedAttention, WeightedLabelAttention
 from attention_modules.hierarchical_attention import HierarchicalRandomAttention, HierarchicalPretrainedAttention
 from attention_modules.target_attention import TargetAttention
 
@@ -168,6 +168,11 @@ class Attention(nn.Module):
                                                    scale=self._scale,
                                                    multihead=self._multihead,
                                                    num_heads=self._num_heads)
+        elif self._att_module == 'weighted_label_attention':
+            self.attention_layer = WeightedLabelAttention(num_classes=self._num_labels,
+                                                          embedding_dim=self._embedding_dim,
+                                                          hidden_dim=self._latent_doc_dim,
+                                                          label_embedding_matrix=label_embedding_matrix)
 
     def forward(self, H: torch.Tensor, get_hierarchical_energy: bool = False) -> Tuple[torch.Tensor]:
         """
@@ -194,7 +199,11 @@ class Attention(nn.Module):
             C = self.MH_output(C)
             return C
         else:
-            C, E = self.attention_layer(K=K, V=V)
+            if self._att_module == 'weighted_label_attention':
+                C = self.attention_layer(K=K, V=V)
+                return C
+            else:
+                C, E = self.attention_layer(K=K, V=V)
             return C, E
 
 

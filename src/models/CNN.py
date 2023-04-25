@@ -203,6 +203,9 @@ class CNN(nn.Module):
                 C, E = self.attention_layer(H=H)  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
+            elif self._att_module == 'weighted_label_attention':
+                C = self.attention_layer(H=H)
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)
             else:  # Label-attention
                 C, E = self.attention_layer(H=H)
                 logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)

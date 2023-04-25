@@ -203,6 +203,10 @@ class RNN(nn.Module):
                 C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, 1, hidden_dim]
                 logits = self.output_layer(C)  # [batch_size, 1, num_labels]
                 logits = torch.squeeze(logits, dim=1)  # [batch_size, num_labels]
+            elif self._att_module == 'weighted_label_attention':
+                H = self.dropout_layer(H)
+                C = self.attention_layer(H=H.permute(0, 2, 1))
+                logits = self.output_layer.weight.mul(C).sum(dim=2).add(self.output_layer.bias)  # [batch_size, num_labels]
             else:  # label-attention
                 H = self.dropout_layer(H)
                 C, E = self.attention_layer(H=H.permute(0, 2, 1))  # [batch_size, num_labels, hidden_dim]

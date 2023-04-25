@@ -193,7 +193,7 @@ class ExperimentSuite:
                 code2cat_map = pickle.load(f)
             self._model_args['model_kwargs']['code2cat_map'] = code2cat_map
 
-        if att_module == 'pretrained':
+        if att_module in ['pretrained', 'weighted_label_attention']:
             with open(os.path.join(path_data, 'code_embeddings', f'code_embedding_matrix_{dataset}_{self._model_args["model_kwargs"]["embedding_dim"]}.pkl'), 'rb') as f:
                 label_embedding_matrix = pickle.load(f)
             self._model_args['model_kwargs']['label_embedding_matrix'] = label_embedding_matrix
@@ -880,7 +880,7 @@ parser.add_argument('-am', '--attention_module',
                     type=str,
                     choices=['random', 'hierarchical_random',
                              'pretrained', 'hierarchical_pretrained',
-                             'target', 'baseline'],
+                             'target', 'baseline', 'weighted_label_attention'],
                     help='Select a type of predefined attention mechanism or none.'
                          '-none: No Attention'
                          '-target: Target Attention')
@@ -984,7 +984,6 @@ def main():
     # if args.training = True then train the a new model or pick up a checkpoint otherwise only predict on test set
     exp._train = args.training
     he = args.get_hierarchical_energy
-
 
     if (args.dataset == 'PathReports') and (args.task is None):
         raise TypeError('If dataset "PathReports" is selected, you MUST select a task.'

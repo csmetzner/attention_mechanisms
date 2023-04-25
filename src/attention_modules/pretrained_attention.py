@@ -143,3 +143,84 @@ class PretrainedAttention(nn.Module):
             C = A.matmul(V)
 
             return C, E
+
+
+class WeightedLabelAttention(nn.Module):
+    """
+    Class for label-wise attention mechanism.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of classes in label space for given dataset
+    embedding_dim : int
+        Dimension of word embeddings
+    hidden_dim : int
+        Dimension of hidden dimension of text-encoder architecture output
+
+    """
+
+    def __init__(self, num_classes: int, embedding_dim: int, hidden_dim: int, label_embedding_matrix: np.array):
+        super().__init__()
+        self._num_classes = num_classes
+        self._embedding_dim = embedding_dim
+        self._hidden_dim = hidden_dim
+
+        # Initialize key (K) and value (V) matrices
+        self.K = nn.Conv1d(in_channels=self._hidden_dim,
+                           out_channels=self._hidden_dim,
+                           kernel_size=1)
+        nn.init.xavier_uniform_(self.K.weight)
+        self.K.bias.data.fill_(0.01)
+
+        self.V = nn.Conv1d(in_channels=self._hidden_dim,
+                           out_channels=self._hidden_dim,
+                           kernel_size=1)
+        nn.init.xavier_uniform_(self.V.weight)
+        self.V.bias.data.fill_(0.01)
+
+        # Initialize query (Q) matrix - there is one query for the entire label space
+        self.Q_rdm = nn.Linear(in_features=self._hidden_dim,
+                               out_features=self._num_classes)
+        nn.init.xavier_uniform_(self.Q_rdm.weight)
+
+        self.Q_pt = nn.Linear(in_features=self._hidden_dim,
+                              out_features=self._num_classes)
+        self.Q_pt.weight.data = torch.tensor(label_embedding_matrix, dtype=torch.float)
+
+        self._mapping_layer = nn.Conv1d(in_channels=self._embedding_dim,
+                                        out_channels=self._hidden_dim,
+                                        kernel_size=1)
+
+        # Initialize weights controlling the contribution of random or pretrained embeddings
+        self._alphas = nn.Parameter(data=torch.rand(self._num_classes, 1))
+
+    def forward(self, K, V) -> torch.tensor:
+        """
+        Forward pass of Target Attention Mechanism Class
+
+        Parameters
+        ----------
+        H : torch.tensor
+            Hidden representation matrix after text-encoder architecture
+
+        Returns
+        -------
+        torch.tensor
+            Context vector matrix for a given batch of documents
+
+        """
+        Q_pt = self._mapping_layer(self.Q_pt.weight.permute(1, 0)).permute(1, 0)
+
+        Q = self._alphas * self.Q_rdm.weight + (1 - self._alphas) * Q_pt
+
+        # Scaled matrix product to compute raw energy scores
+        E = Q.matmul(K.permute(0, 2, 1)) / np.sqrt(self._hidden_dim)
+
+        # Computation of attention scores using softmax function
+        A = F.softmax(input=E, dim=2)
+
+        # Computation of the context vector representation for each document in the batch
+        C = A.matmul(V)
+
+        return C
